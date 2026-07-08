@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการหลังบ้าน - ท่าอากาศยานน่านนคร</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Sarabun -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- เรียกใช้งาน Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- เรียกใช้งาน SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- เรียกใช้งาน Chart.js สำหรับทำกราฟ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; } 
+        .hero-clip { clip-path: polygon(0 0, 75% 0, 50% 100%, 0% 100%); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        .active-menu { background-color: #15133C; color: white; border-radius: 8px; }
+        .active-menu .menu-icon { color: #FBBF24; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+
+    <!-- ระบบตรวจสอบว่า Log In แล้วหรือยัง -->
+    <script>
+        if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+            window.location.href = 'index.html';
+        }
+    </script>
+</head>
+<body class="min-h-screen flex flex-col text-gray-800">
+
+    <!-- 1. แถบเมนูด้านบน (Navbar) -->
+    <nav class="bg-white px-4 sm:px-6 py-3 flex justify-between items-center shadow-md sticky top-0 z-40">
+        <div class="flex items-center space-x-3">
+            <div class="bg-[#15133C] text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-sm shadow-sm">NNT</div>
+            <div class="flex flex-col">
+                <span class="text-lg sm:text-xl font-bold text-[#15133C] leading-none">ระบบจัดการหลังบ้าน</span>
+                <span class="text-xs text-gray-500 mt-1">Admin Dashboard</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <div class="hidden sm:flex items-center gap-2 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
+                <i class="ph-fill ph-user-circle text-2xl text-blue-600"></i>
+                <span class="text-sm font-bold text-[#15133C]">ผู้ดูแลระบบ (Admin)</span>
+            </div>
+            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors shadow-sm flex items-center gap-2">
+                ออกจากระบบ <i class="ph-bold ph-sign-out text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 2. ส่วนเนื้อหาหลัก -->
+    <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex flex-col md:flex-row gap-6 flex-grow">
+        
+        <!-- เมนูด้านซ้าย -->
+        <aside class="w-full md:w-64 shrink-0 flex flex-col gap-2">
+            <button onclick="switchTab('manage-tab', this)" class="tab-button active-menu flex items-center gap-3 px-4 py-3 transition group text-left w-full hover:bg-gray-200 rounded-lg">
+                <i class="ph-fill ph-users-three text-2xl text-gray-400 group-hover:text-[#15133C] menu-icon transition"></i>
+                <span class="font-medium">จัดการข้อมูลผู้ลงทะเบียน</span>
+            </button>
+            <button onclick="switchTab('stats-tab', this)" class="tab-button flex items-center gap-3 px-4 py-3 transition group text-left w-full hover:bg-gray-200 rounded-lg text-gray-600">
+                <i class="ph-fill ph-chart-bar text-2xl text-gray-400 group-hover:text-[#15133C] transition"></i>
+                <span class="font-medium group-hover:text-[#15133C] transition">สถิติการใช้งาน</span>
+            </button>
+        </aside>
+
+        <!-- กล่องเนื้อหาด้านขวา -->
+        <section class="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[600px] relative">
+            
+            <!-- ================= Tab 1: จัดการข้อมูล ================= -->
+            <div id="manage-tab" class="tab-content active">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h3 class="text-xl font-bold text-[#15133C] border-l-4 border-blue-500 pl-3">รายชื่อผู้ขอทำบัตรทั้งหมด</h3>
+                    
+                    <div class="flex gap-2">
+                        <div class="relative">
+                            <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
+                            <input type="text" id="adminSearch" onkeyup="filterAdminTable()" class="pl-9 pr-3 py-2 border rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 w-full sm:w-64 bg-gray-50" placeholder="ค้นหาชื่อ, สังกัด...">
+                        </div>
+                        <button onclick="openModal('add')" class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 transition shadow-sm flex items-center gap-1 shrink-0">
+                            <i class="ph-bold ph-plus"></i> เพิ่มข้อมูล
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ตารางข้อมูล -->
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-gray-100 text-gray-700 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-center w-12">ลำดับ</th>
+                                    <th class="px-4 py-3 font-semibold">วันที่</th>
+                                    <th class="px-4 py-3 font-semibold">ชื่อ - นามสกุล</th>
+                                    <th class="px-4 py-3 font-semibold">ตำแหน่ง</th>
+                                    <th class="px-4 py-3 font-semibold">สังกัด / บริษัท</th>
+                                    <th class="px-4 py-3 font-semibold text-center">คะแนน</th>
+                                    <th class="px-4 py-3 font-semibold text-center">สถานะ</th>
+                                    <th class="px-4 py-3 font-semibold text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-table-body" class="divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                        <i class="ph-bold ph-spinner animate-spin inline-block text-xl mr-2"></i> กำลังโหลดข้อมูล...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= Tab 2: สถิติ + กราฟ ================= -->
+            <div id="stats-tab" class="tab-content">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-4">
+                    <h3 class="text-xl font-bold text-[#15133C] border-l-4 border-yellow-500 pl-3">สถิติการใช้งานระบบ</h3>
+                    
+                    <!-- ส่วนเลือกเดือนสำหรับกรองข้อมูลสถิติ -->
+                    <div class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                        <i class="ph ph-calendar-blank text-gray-500 text-lg"></i>
+                        <span class="text-sm font-medium text-gray-700">เลือกเดือน:</span>
+                        <input type="month" id="stat-month-picker" onchange="calculateStats()" class="bg-white border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
+                    </div>
+                </div>
+                
+                <!-- กล่องตัวเลข 4 กล่อง (รวม, ผ่าน, ไม่ผ่าน, รออบรม) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-600 text-xs font-bold mb-1">ผู้ขอทำบัตร (รวม)</p>
+                            <h4 id="stat-total" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-users text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-emerald-600 text-xs font-bold mb-1">อบรมและสอบผ่าน</p>
+                            <h4 id="stat-pass" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-check-circle text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-red-50 border border-red-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-red-600 text-xs font-bold mb-1">สอบไม่ผ่าน</p>
+                            <h4 id="stat-fail" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-red-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-warning-circle text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-amber-600 text-xs font-bold mb-1">รออบรม / ยังไม่เสร็จ</p>
+                            <h4 id="stat-wait" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-amber-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-hourglass-high text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- กราฟแท่งแสดงประเภทบัตร -->
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <h4 class="font-bold text-[#15133C] mb-4 flex items-center gap-2">
+                        <i class="ph-fill ph-chart-bar text-blue-600 text-xl"></i> จำนวนประเภทบัตรที่ขอ
+                    </h4>
+                    <div class="relative h-[300px] w-full">
+                        <canvas id="cardChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- ================= Modal (หน้าต่างเด้ง) สำหรับ เพิ่ม/แก้ไข ข้อมูล ================= -->
+    <div id="dataModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="bg-[#15133C] px-6 py-4 flex justify-between items-center text-white">
+                <h3 id="modalTitle" class="font-bold text-lg">เพิ่มข้อมูลใหม่</h3>
+                <button onclick="closeModal()" class="text-gray-300 hover:text-white transition"><i class="ph-bold ph-x text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <form id="admin-form" class="space-y-4">
+                    <input type="hidden" id="edit-id"> 
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">คำนำหน้า</label>
+                            <select id="m-prefix" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                <option value="นาย">นาย</option>
+                                <option value="นาง">นาง</option>
+                                <option value="นางสาว">นางสาว</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">ชื่อ</label>
+                            <input type="text" id="m-aname" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">นามสกุล</label>
+                            <input type="text" id="m-sname" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">ตำแหน่ง</label>
+                            <input type="text" id="m-position" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">สังกัด / บริษัท</label>
+                            <input type="text" id="m-company" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
+                            <input type="tel" id="m-telephone" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">การขับขี่ยานพาหนะ</label>
+                            <select id="m-driving" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                <option value="ขับรถ">ขับรถ</option>
+                                <option value="ไม่ขับรถ">ไม่ขับรถ</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">ประเภทบัตรที่ขอ</label>
+                        <select id="m-requested" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="บัตรอนุญาตสำหรับบุคคลชนิดถาวร มีอายุครั้งละไม่เกิน 2 ปี">บัตรอนุญาตสำหรับบุคคลชนิดถาวร มีอายุครั้งละไม่เกิน 2 ปี</option>
+                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 90 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 90 วัน</option>
+                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 15 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 15 วัน</option>
+                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 24 ชั่วโมง">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 24 ชั่วโมง</option>
+                            <option value="ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล">ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">สถานะ</label>
+                            <select id="m-status" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50">
+                                <option value="รอการอบรม">รอการอบรม</option>
+                                <option value="กำลังอบรม">กำลังอบรม</option>
+                                <option value="กำลังทำข้อสอบ">กำลังทำข้อสอบ</option>
+                                <option value="อบรมเสร็จสิ้น">อบรมเสร็จสิ้น</option>
+                                <option value="สอบไม่ผ่าน">สอบไม่ผ่าน</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">คะแนนสอบ (เต็ม 20)</label>
+                            <input type="number" id="m-score" value="0" min="0" max="20" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
+                <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition">ยกเลิก</button>
+                <button onclick="saveRecord()" class="px-4 py-2 bg-[#10b981] text-white rounded-md text-sm font-medium hover:bg-emerald-600 transition shadow-sm flex items-center gap-1">
+                    <i class="ph-bold ph-floppy-disk"></i> บันทึกข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= สคริปต์ควบคุมระบบ Admin ================= -->
+    <script>
+        const supabaseUrl = 'https://mjbvannjmvluembjdayg.supabase.co'; 
+        const supabaseKey = 'sb_publishable_QLY9N_FkoqbCJDQogk_AYA_GqfGqjN4';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+        let allData = []; // เก็บข้อมูลทั้งหมดไว้ค้นหาและทำสถิติ
+        let myChart = null; // ตัวแปรกราฟ
+
+        // โหลดข้อมูลทันทีเมื่อเปิดหน้า
+        window.onload = () => {
+            // ตั้งค่าเริ่มต้นของช่องเลือกเดือน ให้เป็นเดือนปัจจุบัน
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            document.getElementById('stat-month-picker').value = `${year}-${month}`;
+
+            fetchAdminData();
+        };
+
+        // --- ระบบอัปเดตอัตโนมัติ (Realtime) สำหรับหน้า Admin ---
+        supabaseClient
+            .channel('public:trainees:admin')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'trainees' }, payload => {
+                fetchAdminData(); // โหลดข้อมูลใหม่เงียบๆ เวลามีคนกดส่งข้อมูลหรือแก้ไข
+            })
+            .subscribe();
+
+        // ฟังก์ชันออกจากระบบ
+        function logout() {
+            Swal.fire({
+                title: 'ต้องการออกจากระบบ?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'ออกจากระบบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.removeItem('isAdminLoggedIn');
+                    window.location.href = 'index.html';
+                }
+            })
+        }
+
+        // ฟังก์ชันสลับเมนูซ้ายมือ
+        function switchTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active-menu');
+                btn.classList.add('text-gray-600');
+                btn.querySelector('.menu-icon')?.classList.remove('text-[#FBBF24]');
+            });
+            
+            document.getElementById(tabId).classList.add('active');
+            
+            if(btnElement) {
+                btnElement.classList.add('active-menu');
+                btnElement.classList.remove('text-gray-600');
+                btnElement.querySelector('i').classList.add('text-[#FBBF24]');
+            }
+
+            if (tabId === 'stats-tab') {
+                calculateStats();
+            }
+        }
+
+        // ฟังก์ชันดึงข้อมูลมาใส่ตาราง
+        async function fetchAdminData() {
+            const tbody = document.getElementById('admin-table-body');
+            
+            const { data, error } = await supabaseClient
+                .from('trainees')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-red-500">เกิดข้อผิดพลาด: ${error.message}</td></tr>`;
+                return;
+            }
+
+            allData = data || [];
+            renderAdminTable(allData);
+            
+            // ถ้าเปิดแท็บสถิติอยู่ ให้อัปเดตสถิติทันที
+            if(document.getElementById('stats-tab').classList.contains('active')){
+                calculateStats(); 
+            }
+        }
+
+        // ฟังก์ชันสร้างตาราง
+        function renderAdminTable(dataToRender) {
+            const tbody = document.getElementById('admin-table-body');
+            
+            if (dataToRender.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">ไม่พบข้อมูล</td></tr>';
+                return;
+            }
+
+            let html = '';
+            
+            dataToRender.forEach((row, index) => {
+                let dateStr = '-';
+                if (row.created_at) {
+                    const d = new Date(row.created_at);
+                    dateStr = d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
+                }
+
+                const fullName = `${row.prefix || ''}${row.aname || ''} ${row.sname || ''}`;
+                const position = row.position || '-';
+                const company = row.company || '-';
+                
+                let statusColor = 'text-gray-600';
+                let statusBg = 'bg-gray-100';
+                if (row.status === 'สอบไม่ผ่าน') { statusColor = 'text-red-700'; statusBg = 'bg-red-100'; } 
+                else if (row.status === 'อบรมเสร็จสิ้น') { statusColor = 'text-emerald-700'; statusBg = 'bg-emerald-100'; } 
+                else if (row.status === 'กำลังทำข้อสอบ' || row.status === 'กำลังอบรม') { statusColor = 'text-blue-700'; statusBg = 'bg-blue-100'; } 
+                else if (row.status === 'รอการอบรม') { statusColor = 'text-amber-700'; statusBg = 'bg-amber-100'; }
+
+                const rowDataJson = encodeURIComponent(JSON.stringify(row));
+
+                html += `
+                    <tr class="hover:bg-blue-50/50 transition border-b border-gray-100">
+                        <td class="px-4 py-3 text-center text-gray-500 font-medium">${index + 1}</td>
+                        <td class="px-4 py-3 text-gray-500 text-xs">${dateStr}</td>
+                        <td class="px-4 py-3 text-gray-800 font-medium">${fullName}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs truncate max-w-[150px]">${position}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs truncate max-w-[150px]">${company}</td>
+                        <td class="px-4 py-3 text-center text-gray-800 font-medium">${row.score !== null ? row.score : '-'}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="${statusBg} ${statusColor} px-2 py-1 rounded-full text-[10px] font-bold">${row.status || '-'}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openModal('edit', '${rowDataJson}')" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center" title="แก้ไข">
+                                    <i class="ph-bold ph-pencil-simple text-lg"></i>
+                                </button>
+                                <button onclick="deleteRecord('${row.id}')" class="w-8 h-8 rounded bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition flex items-center justify-center" title="ลบข้อมูล">
+                                    <i class="ph-bold ph-trash text-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ค้นหาในตาราง
+        function filterAdminTable() {
+            const query = document.getElementById('adminSearch').value.toLowerCase();
+            const filtered = allData.filter(row => {
+                const searchString = `${row.aname} ${row.sname} ${row.position} ${row.company}`.toLowerCase();
+                return searchString.includes(query);
+            });
+            renderAdminTable(filtered);
+        }
+
+        function deleteRecord(id) {
+            Swal.fire({
+                title: 'ยืนยันการลบข้อมูล?',
+                text: "หากลบแล้วจะไม่สามารถกู้คืนได้!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'ใช่, ลบเลย!',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const { error } = await supabaseClient.from('trainees').delete().eq('id', id);
+                    if (error) {
+                        Swal.fire('ผิดพลาด!', error.message, 'error');
+                    } else {
+                        Swal.fire('ลบสำเร็จ!', 'ข้อมูลถูกลบเรียบร้อยแล้ว', 'success');
+                    }
+                }
+            });
+        }
+
+        function openModal(mode, rowDataJson = null) {
+            const modal = document.getElementById('dataModal');
+            const form = document.getElementById('admin-form');
+            const title = document.getElementById('modalTitle');
+            
+            form.reset(); 
+            
+            if (mode === 'add') {
+                title.innerText = 'เพิ่มข้อมูลผู้ลงทะเบียนใหม่';
+                document.getElementById('edit-id').value = '';
+            } else if (mode === 'edit' && rowDataJson) {
+                title.innerText = 'แก้ไขข้อมูลผู้ลงทะเบียน';
+                const data = JSON.parse(decodeURIComponent(rowDataJson));
+                
+                document.getElementById('edit-id').value = data.id;
+                document.getElementById('m-prefix').value = data.prefix || '';
+                document.getElementById('m-aname').value = data.aname || '';
+                document.getElementById('m-sname').value = data.sname || '';
+                document.getElementById('m-position').value = data.position || '';
+                document.getElementById('m-company').value = data.company || '';
+                document.getElementById('m-telephone').value = data.telephone || '';
+                document.getElementById('m-driving').value = data.driving || '';
+                document.getElementById('m-requested').value = data.requested || '';
+                document.getElementById('m-status').value = data.status || 'รอการอบรม';
+                document.getElementById('m-score').value = data.score || 0;
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('dataModal').classList.add('hidden');
+        }
+
+        async function saveRecord() {
+            const id = document.getElementById('edit-id').value;
+            
+            const payload = {
+                prefix: document.getElementById('m-prefix').value,
+                aname: document.getElementById('m-aname').value,
+                sname: document.getElementById('m-sname').value,
+                position: document.getElementById('m-position').value,
+                company: document.getElementById('m-company').value,
+                telephone: document.getElementById('m-telephone').value,
+                driving: document.getElementById('m-driving').value,
+                requested: document.getElementById('m-requested').value,
+                status: document.getElementById('m-status').value,
+                score: parseInt(document.getElementById('m-score').value) || 0
+            };
+
+            if (!payload.aname || !payload.sname) {
+                Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและนามสกุล', 'warning');
+                return;
+            }
+
+            let errorResult;
+
+            if (id) {
+                const { error } = await supabaseClient.from('trainees').update(payload).eq('id', id);
+                errorResult = error;
+            } else {
+                const { error } = await supabaseClient.from('trainees').insert([payload]);
+                errorResult = error;
+            }
+
+            if (errorResult) {
+                Swal.fire('ผิดพลาด', errorResult.message, 'error');
+            } else {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ',
+                    showConfirmButton: false,
+                    timer: 1500
+                });
+                closeModal();
+            }
+        }
+
+        // ================= ฟังก์ชัน คำนวณสถิติ และ อัปเดตกราฟ =================
+        function calculateStats() {
+            const monthPicker = document.getElementById('stat-month-picker').value; // ได้ค่าแบบ "YYYY-MM"
+            if (!monthPicker) return;
+            
+            const [selectedYear, selectedMonth] = monthPicker.split('-');
+
+            let total = 0, pass = 0, fail = 0, wait = 0;
+            
+            // สำหรับเก็บจำนวนประเภทบัตร
+            let cardCounts = {
+                c1: 0, // ถาวร 2 ปี
+                c2: 0, // ชั่วคราว 90 วัน
+                c3: 0, // ชั่วคราว 15 วัน
+                c4: 0, // ชั่วคราว 24 ชม
+                c5: 0  // ต่ออายุ
+            };
+
+            allData.forEach(row => {
+                if (row.created_at) {
+                    const d = new Date(row.created_at);
+                    const y = d.getFullYear().toString();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+
+                    // นับเฉพาะคนที่ตรงกับเดือน/ปี ที่เลือก
+                    if (y === selectedYear && m === selectedMonth) {
+                        total++;
+                        
+                        // นับสถานะ
+                        if (row.status === 'อบรมเสร็จสิ้น') {
+                            pass++;
+                        } else if (row.status === 'สอบไม่ผ่าน') {
+                            fail++;
+                        } else {
+                            // สถานะอื่นๆ (รออบรม, กำลังอบรม, กำลังทำข้อสอบ) ถือว่า รอ/ยังไม่เสร็จ
+                            wait++;
+                        }
+
+                        // นับประเภทบัตร
+                        const req = row.requested || '';
+                        if (req.includes('ถาวร')) cardCounts.c1++;
+                        else if (req.includes('90 วัน')) cardCounts.c2++;
+                        else if (req.includes('15 วัน')) cardCounts.c3++;
+                        else if (req.includes('24 ชั่วโมง')) cardCounts.c4++;
+                        else if (req.includes('ต่ออายุ')) cardCounts.c5++;
+                    }
+                }
+            });
+
+            // อัปเดตตัวเลขในกล่อง 4 กล่อง
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-pass').innerText = pass;
+            document.getElementById('stat-fail').innerText = fail;
+            document.getElementById('stat-wait').innerText = wait;
+
+            // นำข้อมูลไปวาดกราฟ
+            renderChart(cardCounts);
+        }
+
+        // ฟังก์ชันวาดกราฟแท่ง
+        function renderChart(counts) {
+            const ctx = document.getElementById('cardChart').getContext('2d');
+            
+            // ถ้าเคยมีกราฟวาดไว้แล้ว ให้ลบทิ้งก่อนวาดใหม่ (ป้องกันการซ้อนทับกัน)
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'bar', // รูปแบบกราฟแท่ง
+                data: {
+                    labels: ['ถาวร (2 ปี)', 'ชั่วคราว (90 วัน)', 'ชั่วคราว (15 วัน)', 'ชั่วคราว (24 ชม.)', 'เปลี่ยน/ต่ออายุ'],
+                    datasets: [{
+                        label: 'จำนวนประเภทบัตรที่ขอ (คน)',
+                        data: [counts.c1, counts.c2, counts.c3, counts.c4, counts.c5],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)', // ฟ้า
+                            'rgba(16, 185, 129, 0.8)', // เขียว
+                            'rgba(245, 158, 11, 0.8)', // ส้มเหลือง
+                            'rgba(239, 68, 68, 0.8)',  // แดง
+                            'rgba(139, 92, 246, 0.8)'  // ม่วง
+                        ],
+                        borderRadius: 6, // ขอบกราฟมน
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false } // ซ่อนคำอธิบายป้ายกำกับด้านบน
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1, // ให้สเกลแกน Y รันทีละ 1 (ไม่มีทศนิยม)
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
