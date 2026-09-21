@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>กลุ่มรักษาความปลอดภัย ท่าอากาศยานน่านนคร</title>
+    <title>ระบบจัดการหลังบ้าน - ท่าอากาศยานน่านนคร</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,22 +17,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- เรียกใช้งาน SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- เรียกใช้งาน Chart.js สำหรับทำกราฟ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #15133C; }
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; } 
         .hero-clip { clip-path: polygon(0 0, 75% 0, 50% 100%, 0% 100%); }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; }
-        
-        /* สไตล์ปุ่มเมนูตอนกำลังเลือก (แยกคอมกับมือถือ) */
-        .active-menu .menu-icon { background-color: #FBBF24; border-color: #FBBF24; color: #15133C; }
-        .active-menu .menu-text { color: #FBBF24; }
-        @media (max-width: 767px) {
-            .active-menu { background-color: rgba(255, 255, 255, 0.1); }
-            .hide-scrollbar::-webkit-scrollbar { display: none; }
-            .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        }
-
+        .active-menu { background-color: #15133C; color: white; border-radius: 8px; }
+        .active-menu .menu-icon { color: #FBBF24; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -40,289 +34,90 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
+
+    <!-- ระบบตรวจสอบว่า Log In แล้วหรือยัง -->
+    <script>
+        if (localStorage.getItem('isAdminLoggedIn') !== 'true') {
+            window.location.href = 'index.html';
+        }
+    </script>
 </head>
-<body class="min-h-screen text-white flex flex-col">
+<body class="min-h-screen flex flex-col text-gray-800">
 
     <!-- 1. แถบเมนูด้านบน (Navbar) -->
-    <nav class="bg-white text-gray-800 px-4 sm:px-6 py-3 flex justify-between items-center shadow-md sticky top-0 z-50">
+    <nav class="bg-white px-4 sm:px-6 py-3 flex justify-between items-center shadow-md sticky top-0 z-40">
         <div class="flex items-center space-x-3">
-            <div class="bg-[#15133C] text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-sm shadow-sm shrink-0">NNT</div>
+            <div class="bg-[#15133C] text-white font-bold rounded-full w-10 h-10 flex items-center justify-center text-sm shadow-sm">NNT</div>
             <div class="flex flex-col">
-                <span class="text-base sm:text-xl font-bold text-[#15133C] leading-none">ท่าอากาศยานน่านนคร</span>
-                <span class="text-[10px] sm:text-xs text-gray-500 mt-1">Nan Nakhon Airport</span>
+                <span class="text-lg sm:text-xl font-bold text-[#15133C] leading-none">ระบบจัดการหลังบ้าน</span>
+                <span class="text-xs text-gray-500 mt-1">Admin Dashboard</span>
             </div>
         </div>
 
-        <!-- ฝั่งขวา: ช่อง Login สำหรับ Admin -->
-        <div class="hidden md:flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg border border-gray-200 shadow-sm">
-            <span class="text-sm font-bold text-[#15133C] mr-1 flex items-center gap-1">
-                <i class="ph-fill ph-user-gear text-lg text-blue-600"></i> Admin
-            </span>
-            <input type="text" id="adminUser" placeholder="Username" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-1 focus:ring-[#15133C] w-28 lg:w-32 bg-white">
-            <input type="password" id="adminPass" placeholder="Password" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm outline-none focus:ring-1 focus:ring-[#15133C] w-28 lg:w-32 bg-white">
-            <button onclick="adminLogin()" class="bg-[#15133C] text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-blue-900 transition-colors shadow-sm ml-1 flex items-center gap-1">
-                Login <i class="ph-bold ph-sign-in"></i>
+        <div class="flex items-center gap-4">
+            <div class="hidden sm:flex items-center gap-2 bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
+                <i class="ph-fill ph-user-circle text-2xl text-blue-600"></i>
+                <span class="text-sm font-bold text-[#15133C]">ผู้ดูแลระบบ (Admin)</span>
+            </div>
+            <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600 transition-colors shadow-sm flex items-center gap-2">
+                ออกจากระบบ <i class="ph-bold ph-sign-out text-lg"></i>
             </button>
         </div>
     </nav>
 
-    <!-- 2. ส่วนหัวเว็บ -->
-    <header class="relative w-full h-[180px] sm:h-[250px] md:h-[300px] bg-gray-900 overflow-hidden flex flex-col justify-center">
-        <img src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=2074&auto=format&fit=crop" alt="Airplane" class="absolute inset-0 w-full h-full object-cover opacity-50" />
-        <div class="absolute left-0 top-0 bottom-0 w-full md:w-[85%] lg:w-[75%] bg-[#15133C]/95 hero-clip z-10"></div>
-        <div class="relative z-20 px-4 sm:px-12 md:px-20 max-w-7xl mx-auto w-full">
-            <h1 class="text-2xl sm:text-4xl md:text-5xl font-bold text-white mb-1 md:mb-2 tracking-wide drop-shadow-md">กลุ่มรักษาความปลอดภัย</h1>
-            <p class="text-sm sm:text-xl text-yellow-400 font-medium drop-shadow-md">ท่าอากาศยานน่านนคร</p>
-        </div>
-    </header>
-
-    <!-- 3. ส่วนเนื้อหาหลัก -->
-    <main class="max-w-7xl mx-auto w-full px-2 sm:px-6 lg:px-8 py-6 md:py-10 flex flex-col md:flex-row gap-4 md:gap-8 relative z-20 flex-grow">
+    <!-- 2. ส่วนเนื้อหาหลัก -->
+    <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 flex flex-col md:flex-row gap-6 flex-grow">
         
-        <!-- เมนูด้านซ้าย (บนมือถือจะเป็นแบบเลื่อนซ้ายขวา) -->
-        <aside class="w-full md:w-1/4 flex flex-col gap-2 pt-2">
-            <div class="text-right border-b border-gray-600/50 pb-4 mb-4 hidden md:block">
-                <h2 class="text-yellow-500 font-bold text-xl">บริการออนไลน์</h2>
-                <p class="text-gray-300 text-sm mt-1">กลุ่มรักษาความปลอดภัย</p>
-            </div>
-            
-            <!-- เมนูเลื่อนแนวนอนบนมือถือ -->
-            <div class="flex flex-row md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar snap-x">
-                <button onclick="switchTab('register-tab', this)" class="tab-button active-menu snap-start shrink-0 flex items-center md:justify-end gap-2 md:gap-4 group cursor-pointer px-4 py-2 md:p-0 md:py-2 bg-white/5 md:bg-transparent rounded-full md:rounded-none transition">
-                    <span class="menu-text text-gray-300 text-xs md:text-sm font-medium group-hover:text-yellow-400 transition order-2 md:order-1">ระบบลงทะเบียนและทดสอบ</span>
-                    <div class="menu-icon w-8 h-8 md:w-10 md:h-10 rounded-full border border-gray-500 text-gray-400 flex items-center justify-center group-hover:border-yellow-400 group-hover:text-yellow-400 transition shadow-lg shrink-0 order-1 md:order-2">
-                        <i class="ph ph-user-list text-lg md:text-xl"></i>
-                    </div>
-                </button>
-                <button onclick="switchTab('status-tab', this)" class="tab-button snap-start shrink-0 flex items-center md:justify-end gap-2 md:gap-4 group cursor-pointer px-4 py-2 md:p-0 md:py-2 bg-white/5 md:bg-transparent rounded-full md:rounded-none transition">
-                    <span class="menu-text text-gray-300 text-xs md:text-sm font-medium group-hover:text-yellow-400 transition order-2 md:order-1">สถานะผู้ขอทำบัตร</span>
-                    <div class="menu-icon w-8 h-8 md:w-10 md:h-10 rounded-full border border-gray-500 text-gray-400 flex items-center justify-center group-hover:border-yellow-400 group-hover:text-yellow-400 transition shadow-lg shrink-0 order-1 md:order-2">
-                        <i class="ph ph-identification-card text-lg md:text-xl"></i>
-                    </div>
-                </button>
-                <button onclick="switchTab('download-tab', this)" class="tab-button snap-start shrink-0 flex items-center md:justify-end gap-2 md:gap-4 group cursor-pointer px-4 py-2 md:p-0 md:py-2 bg-white/5 md:bg-transparent rounded-full md:rounded-none transition">
-                    <span class="menu-text text-gray-300 text-xs md:text-sm font-medium group-hover:text-yellow-400 transition order-2 md:order-1">ดาวน์โหลดแบบฟอร์ม</span>
-                    <div class="menu-icon w-8 h-8 md:w-10 md:h-10 rounded-full border border-gray-500 text-gray-400 flex items-center justify-center group-hover:border-yellow-400 group-hover:text-yellow-400 transition shadow-lg shrink-0 order-1 md:order-2">
-                        <i class="ph ph-file-arrow-down text-lg md:text-xl"></i>
-                    </div>
-                </button>
-                <button onclick="switchTab('contact-tab', this)" class="tab-button snap-start shrink-0 flex items-center md:justify-end gap-2 md:gap-4 group cursor-pointer px-4 py-2 md:p-0 md:py-2 bg-white/5 md:bg-transparent rounded-full md:rounded-none transition">
-                    <span class="menu-text text-gray-300 text-xs md:text-sm font-medium group-hover:text-yellow-400 transition order-2 md:order-1">ข้อมูลการติดต่อ</span>
-                    <div class="menu-icon w-8 h-8 md:w-10 md:h-10 rounded-full border border-gray-500 text-gray-400 flex items-center justify-center group-hover:border-yellow-400 group-hover:text-yellow-400 transition shadow-lg shrink-0 order-1 md:order-2">
-                        <i class="ph ph-phone-call text-lg md:text-xl"></i>
-                    </div>
-                </button>
-            </div>
+        <!-- เมนูด้านซ้าย -->
+        <aside class="w-full md:w-64 shrink-0 flex flex-col gap-2">
+            <button onclick="switchTab('manage-tab', this)" class="tab-button active-menu flex items-center gap-3 px-4 py-3 transition group text-left w-full hover:bg-gray-200 rounded-lg">
+                <i class="ph-fill ph-users-three text-2xl text-gray-400 group-hover:text-[#15133C] menu-icon transition"></i>
+                <span class="font-medium">จัดการข้อมูลผู้ลงทะเบียน</span>
+            </button>
+            <button onclick="switchTab('stats-tab', this)" class="tab-button flex items-center gap-3 px-4 py-3 transition group text-left w-full hover:bg-gray-200 rounded-lg text-gray-600">
+                <i class="ph-fill ph-chart-bar text-2xl text-gray-400 group-hover:text-[#15133C] transition"></i>
+                <span class="font-medium group-hover:text-[#15133C] transition">สถิติการใช้งาน</span>
+            </button>
         </aside>
 
-        <!-- กล่องเนื้อหาสีขาวด้านขวา (ปรับ Padding ให้พอดีมือถือ) -->
-        <section class="w-full md:w-3/4 bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-10 text-gray-800 min-h-[500px]">
+        <!-- กล่องเนื้อหาด้านขวา -->
+        <section class="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[600px] relative">
             
-            <!-- ================= เนื้อหา Tab 1: ลงทะเบียน (ฟอร์ม + ความสำเร็จ + อบรม + ข้อสอบ) ================= -->
-            <div id="register-tab" class="tab-content active">
-                
-                <div id="form-section">
-                    <h3 class="text-lg md:text-xl font-bold text-[#15133C] border-l-4 border-yellow-500 pl-3 mb-4 md:mb-6">ระบบอบรมก่อนเข้าพื้นที่ควบคุม</h3>
-                    <div id="instruction-box" class="bg-gray-50 border border-gray-200 rounded-lg p-4 md:p-6 mb-6 md:mb-8">
-                        <h4 class="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base">
-                            <i class="ph-fill ph-info text-blue-600 text-lg"></i> คำชี้แจงการใช้งาน
-                        </h4>
-                        <ul class="list-disc list-inside text-xs md:text-sm text-gray-600 space-y-2 ml-1">
-                            <li>ผู้ขออนุญาตเข้าพื้นที่ต้องกรอกข้อมูลตามความเป็นจริง</li>
-                            <li>ต้องศึกษาเอกสาร และรับชมวิดีโอให้จบ จึงจะมีสิทธิ์ทำข้อสอบ</li>
-                            <li>เกณฑ์การผ่านแบบทดสอบ คือ 80% (18 ข้อจาก 20 ข้อ)</li>
-                        </ul>
-                    </div>
+            <!-- ================= Tab 1: จัดการข้อมูล ================= -->
+            <div id="manage-tab" class="tab-content active">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h3 class="text-xl font-bold text-[#15133C] border-l-4 border-blue-500 pl-3">รายชื่อผู้ขอทำบัตรทั้งหมด</h3>
                     
-                    <div id="register-form-container" class="border border-gray-200 rounded-lg overflow-hidden shadow-sm transition-all duration-300">
-                        <div class="bg-[#15133C] text-white text-center py-3 font-medium text-sm md:text-lg">
-                            1. ข้อมูลส่วนบุคคล
-                        </div>
-                        <div class="p-4 sm:p-6 md:p-8 bg-white">
-                            <p class="text-red-600 text-center text-xs md:text-sm font-medium mb-6">* กรุณากรอกข้อมูลและเลือกรายการให้ครบถ้วนทุกช่อง *</p>
-                            
-                            <form class="space-y-4 md:space-y-6">
-                                <div class="grid grid-cols-1 md:grid-cols-[1fr_2fr_2fr] gap-4 md:gap-6">
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">คำนำหน้า <span class="text-red-500">*</span></label>
-                                        <select id="prefix" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm bg-white cursor-pointer">
-                                            <option value="">-- Select --</option>
-                                            <option value="นาย">นาย</option>
-                                            <option value="นาง">นาง</option>
-                                            <option value="นางสาว">นางสาว</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">ชื่อ <span class="text-red-500">*</span></label>
-                                        <input type="text" id="aname" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm" placeholder="กรอกชื่อ">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">นามสกุล <span class="text-red-500">*</span></label>
-                                        <input type="text" id="sname" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm" placeholder="กรอกนามสกุล">
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">ตำแหน่ง <span class="text-red-500">*</span></label>
-                                        <input type="text" id="position" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm" placeholder="กรอกตำแหน่ง">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">สังกัด / บริษัท <span class="text-red-500">*</span></label>
-                                        <input type="text" id="company" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm" placeholder="กรอกสังกัดหรือบริษัท">
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ <span class="text-red-500">*</span></label>
-                                    <input type="tel" id="telephone" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm" placeholder="กรอกเบอร์โทรศัพท์">
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">ประเภทบัตรที่ขอ <span class="text-red-500">*</span></label>
-                                        <select id="requested" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm bg-white cursor-pointer">
-                                            <option value="">-- Select --</option>
-                                            <option value="บัตรอนุญาตสำหรับบุคคลชนิดถาวร มีอายุครั้งละไม่เกิน 2 ปี">บัตรอนุญาตสำหรับบุคคลชนิดถาวร มีอายุครั้งละไม่เกิน 2 ปี</option>
-                                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 90 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 90 วัน</option>
-                                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 15 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 15 วัน</option>
-                                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 24 ชั่วโมง">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 24 ชั่วโมง</option>
-                                            <option value="ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล">ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">การขับขี่ยานพาหนะ <span class="text-red-500">*</span></label>
-                                        <select id="driving" class="w-full px-3 md:px-4 py-2 md:py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#15133C] outline-none text-sm bg-white cursor-pointer">
-                                            <option value="">-- Select --</option>
-                                            <option value="ขับรถ">ขับรถ</option>
-                                            <option value="ไม่ขับรถ">ไม่ขับรถ</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="flex justify-center pt-6">
-                                    <button type="button" onclick="submitRegistration()" class="bg-[#15133C] text-white px-10 py-2.5 md:px-12 md:py-3 rounded-md font-medium text-base md:text-lg hover:bg-blue-900 transition-colors shadow-md w-full md:w-auto">
-                                        ลงทะเบียน
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="success-screen" class="hidden flex-col items-center justify-center py-10 md:py-16 text-center animate-[fadeIn_0.5s_ease-in-out]">
-                    <div class="w-20 h-20 md:w-24 md:h-24 bg-[#d1fae5] rounded-full flex items-center justify-center mb-6 shadow-sm">
-                        <i class="ph-bold ph-check text-[#10b981] text-4xl md:text-5xl"></i>
-                    </div>
-                    <h3 class="text-2xl md:text-3xl font-bold text-[#15133C] mb-4">บันทึกข้อมูลสำเร็จ!</h3>
-                    <p class="text-gray-600 text-sm md:text-lg mb-1">ข้อมูลของคุณถูกส่งเข้าระบบเรียบร้อยแล้ว</p>
-                    <p class="text-gray-600 text-sm md:text-lg mb-8">กรุณากดปุ่มด้านล่างเพื่อเข้าสู่เนื้อหาการอบรม</p>
-                    <button type="button" onclick="loadTrainingScreen()" class="bg-[#13599b] text-white px-6 py-2.5 md:px-8 md:py-3 rounded-md font-medium hover:bg-blue-800 transition-colors shadow-md flex items-center justify-center gap-2 text-base md:text-lg w-full md:w-auto">
-                        เข้าสู่การอบรม <i class="ph-bold ph-arrow-right"></i>
-                    </button>
-                </div>
-
-                <div id="training-screen" class="hidden flex-col animate-[fadeIn_0.5s_ease-in-out]">
-                    <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm bg-white">
-                        <div class="bg-[#13599b] text-white text-center py-3 font-medium text-sm md:text-lg">
-                            2. เนื้อหาการอบรม Security Awareness
-                        </div>
-                        <div class="p-4 md:p-6">
-                            <div class="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-gray-200">
-                                <h4 class="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm md:text-base">
-                                    <i class="ph-fill ph-file-pdf text-red-500 text-xl"></i> เอกสารประกอบการอบรม
-                                </h4>
-                                <div class="w-full h-[300px] md:h-[400px] bg-gray-100 border border-gray-300 rounded flex items-center justify-center overflow-hidden relative">
-                                    <p class="text-gray-400 absolute text-xs">กำลังโหลดเอกสาร...</p>
-                                    <iframe src="https://drive.google.com/file/d/102hT3cGI4Zy1xfonjV4TDUvEyQM974w2/preview" width="100%" height="100%" class="z-10 bg-white"></iframe>
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-gray-700 mb-1 flex items-center gap-2 text-sm md:text-base">
-                                    <i class="ph-fill ph-video-camera text-blue-600 text-xl"></i> วิดีโอการอบรม (ห้ามกดข้าม)
-                                </h4>
-                                <p class="text-red-500 text-[10px] md:text-xs mb-4">* กรุณาดูวิดีโอให้จบ ปุ่มดำเนินการต่อจึงจะสามารถกดได้ (ระบบจะดึงวิดีโอกลับหากพยายามข้าม)</p>
-                                
-                                <div class="w-full aspect-video bg-black rounded overflow-hidden relative shadow-inner">
-                                    <div id="youtube-player"></div>
-                                </div>
-                            </div>
-
-                            <div class="flex justify-center pt-6 md:pt-8">
-                                <button id="next-step-btn" type="button" disabled class="bg-gray-300 text-gray-500 px-6 py-2.5 md:px-12 md:py-3 rounded-md font-medium text-base md:text-lg cursor-not-allowed transition-colors shadow-sm w-full md:w-auto">
-                                    กำลังรับชมวิดีโอ...
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="exam-screen" class="hidden flex-col animate-[fadeIn_0.5s_ease-in-out]">
-                    <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm bg-white">
-                        <div class="bg-[#15133C] text-white text-center py-3 font-medium text-sm md:text-lg">
-                            3. แบบทดสอบความรู้ Security Awareness
-                        </div>
-                        <div class="p-3 md:p-4 bg-yellow-50 text-yellow-800 text-center text-[10px] md:text-sm border-b border-yellow-100 font-medium">
-                            * เกณฑ์การผ่าน: ทำข้อสอบให้ถูกต้องอย่างน้อย 18 ข้อ จากทั้งหมด 20 ข้อ (90%) *
-                        </div>
-                        <div class="p-4 sm:p-6 md:p-8" id="exam-container"></div>
-                        <div class="flex justify-center p-4 md:p-6 border-t border-gray-100 bg-gray-50">
-                            <button type="button" onclick="submitExam()" class="bg-[#10b981] text-white px-10 py-2.5 md:px-12 md:py-3 rounded-md font-medium text-base md:text-lg hover:bg-emerald-600 transition-colors shadow-md w-full md:w-auto">
-                                ส่งคำตอบ
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="exam-result-screen" class="hidden flex-col items-center justify-center py-10 md:py-16 text-center animate-[fadeIn_0.5s_ease-in-out]"></div>
-            </div>
-
-            <!-- ================= เนื้อหา Tab 2: สถานะ ================= -->
-            <div id="status-tab" class="tab-content">
-                <h3 class="text-lg md:text-xl font-bold text-[#15133C] border-l-4 border-yellow-500 pl-3 mb-4 md:mb-6">ตรวจสอบสถานะผู้ขอทำบัตร</h3>
-                
-                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 md:p-5 mb-6 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-                    <div>
-                        <label class="block text-xs md:text-sm text-gray-600 mb-1">ค้นหารายชื่อ</label>
+                    <div class="flex gap-2">
                         <div class="relative">
                             <i class="ph ph-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
-                            <input type="text" id="searchInput" onkeyup="filterTable()" class="w-full pl-9 pr-3 py-2 border rounded-md text-xs md:text-sm outline-none focus:ring-1 focus:ring-[#15133C]" placeholder="ชื่อ, นามสกุล...">
+                            <input type="text" id="adminSearch" onkeyup="filterAdminTable()" class="pl-9 pr-3 py-2 border rounded-md text-sm outline-none focus:ring-1 focus:ring-blue-500 w-full sm:w-64 bg-gray-50" placeholder="ค้นหาชื่อ, สังกัด...">
                         </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs md:text-sm text-gray-600 mb-1"><i class="ph ph-calendar-blank"></i> เลือกวันที่</label>
-                        <input type="date" id="filterDate" onchange="filterTable()" class="w-full px-3 py-2 border rounded-md text-xs md:text-sm outline-none focus:ring-1 focus:ring-[#15133C] text-gray-600">
-                    </div>
-                    <div>
-                        <label class="block text-xs md:text-sm text-gray-600 mb-1"><i class="ph ph-identification-card"></i> ประเภทของบัตร</label>
-                        <select id="filterCardType" onchange="filterTable()" class="w-full px-3 py-2 border rounded-md text-xs md:text-sm outline-none focus:ring-1 focus:ring-[#15133C] text-gray-600">
-                            <option value="">ทั้งหมดทุกประเภทบัตร</option>
-                            <option value="บัตรอนุญาตสำหรับบุคคลชนิดถาวร">บัตรอนุญาตสำหรับบุคคลชนิดถาวร</option>
-                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว 90 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว 90 วัน</option>
-                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว 15 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว 15 วัน</option>
-                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว 24 ชั่วโมง">บัตรอนุญาตสำหรับบุคคลชั่วคราว 24 ชั่วโมง</option>
-                            <option value="ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล">ขอต่ออายุหรือเปลี่ยนบัตร</option>
-                        </select>
+                        <button onclick="openModal('add')" class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 transition shadow-sm flex items-center gap-1 shrink-0">
+                            <i class="ph-bold ph-plus"></i> เพิ่มข้อมูล
+                        </button>
                     </div>
                 </div>
-                
-                <div class="border border-gray-200 rounded-lg shadow-sm overflow-hidden bg-white">
+
+                <!-- ตารางข้อมูล -->
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
                     <div class="overflow-x-auto custom-scrollbar">
-                        <table class="w-full text-left text-xs md:text-sm whitespace-nowrap">
-                            <thead class="bg-[#15133C] text-white border-b border-gray-300">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-gray-100 text-gray-700 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide text-center">ลำดับ</th>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide">วันที่ลงทะเบียน</th>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide">ชื่อ - นามสกุล</th>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide">ตำแหน่ง</th>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide">สังกัด / บริษัท</th>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide text-center">คะแนนสอบ</th>
-                                    <th class="px-4 md:px-5 py-3 font-medium tracking-wide text-center">สถานะ</th>
+                                    <th class="px-4 py-3 font-semibold text-center w-12">ลำดับ</th>
+                                    <th class="px-4 py-3 font-semibold">วันที่</th>
+                                    <th class="px-4 py-3 font-semibold">ชื่อ - นามสกุล</th>
+                                    <th class="px-4 py-3 font-semibold">ตำแหน่ง</th>
+                                    <th class="px-4 py-3 font-semibold">สังกัด / บริษัท</th>
+                                    <th class="px-4 py-3 font-semibold text-center">คะแนน</th>
+                                    <th class="px-4 py-3 font-semibold text-center">สถานะ</th>
+                                    <th class="px-4 py-3 font-semibold text-center">จัดการ</th>
                                 </tr>
                             </thead>
-                            <tbody id="trainees-table-body" class="divide-y divide-gray-200">
+                            <tbody id="admin-table-body" class="divide-y divide-gray-200">
                                 <tr>
-                                    <td colspan="7" class="px-5 py-8 text-center text-gray-500">
+                                    <td colspan="8" class="px-4 py-8 text-center text-gray-500">
                                         <i class="ph-bold ph-spinner animate-spin inline-block text-xl mr-2"></i> กำลังโหลดข้อมูล...
                                     </td>
                                 </tr>
@@ -332,291 +127,74 @@
                 </div>
             </div>
 
-            <!-- ================= เนื้อหา Tab 3: ดาวน์โหลด ================= -->
-            <div id="download-tab" class="tab-content">
-                <h3 class="text-lg md:text-xl font-bold text-[#15133C] border-l-4 border-yellow-500 pl-3 mb-4 md:mb-6">ดาวน์โหลดแบบฟอร์มที่เกี่ยวข้อง</h3>
+            <!-- ================= Tab 2: สถิติ + กราฟ ================= -->
+            <div id="stats-tab" class="tab-content">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-4">
+                    <h3 class="text-xl font-bold text-[#15133C] border-l-4 border-yellow-500 pl-3">สถิติการใช้งานระบบ</h3>
+                    
+                    <!-- ส่วนเลือกเดือนสำหรับกรองข้อมูลสถิติ -->
+                    <div class="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                        <i class="ph ph-calendar-blank text-gray-500 text-lg"></i>
+                        <span class="text-sm font-medium text-gray-700">เลือกเดือน:</span>
+                        <input type="month" id="stat-month-picker" onchange="calculateStats()" class="bg-white border border-gray-300 rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
+                    </div>
+                </div>
                 
-                <div class="space-y-3 md:space-y-4">
-                    <!-- รายการที่ 1 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">คู่มือการปฏิบัติงานด้านการรักษาความปลอดภัย</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">เอกสารประกอบการอบรม สำหรับศึกษาเพื่อเตรียมตัวทดสอบก่อนขอรับบัตรอนุญาตบุคคล</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/102hT3cGI4Zy1xfonjV4TDUvEyQM974w2/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-
-                    <!-- รายการที่ 2 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">แบบคำขอรับบัตรอนุญาตสำหรับบุคคล (ชนิดถาวร)</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">สำหรับเข้าปฏิบัติงานระยะยาว 2 ปี</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/13PhALm7Ok2tYm3S5J93AmfBFAAKaHP9Y/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-
-                    <!-- รายการที่ 3 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">แบบคำขอรับบัตรอนุญาตสำหรับบุคคล (ชนิดชั่วคราว)</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">สำหรับเข้าปฏิบัติงานระยะสั้น 1 วัน , 15 วัน , 90 วัน</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/1P9fCichmplsIAJYJVI6oACQS0ffd_UPc/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-
-                    <!-- รายการที่ 4 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">แบบคำขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">สำหรับต่ออายุ, บัตรชำรุด, บัตรหาย</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/1eQazWo78UBX9Y0H6pV_RJvjJCRlVUyRC/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-
-                    <!-- รายการที่ 5 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">แบบคำขอรับบัตรอนุญาตสำหรับยานพาหนะ</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">สำหรับยานพาหนะต้องเข้าไปทำงานในเขตหวงห้าม</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/1TCGQcqOn0dbqHiCJgZU0VDTKFTViQgHj/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-
-                    <!-- รายการที่ 6 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">แบบคำขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับยานพาหนะ</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">สำหรับยานพาหนะต่ออายุ, ป้ายชำรุด, สูญหาย</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/16vcJWsSnga2Ow0ZLa8cnt5OVNt0r6fhF/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-
-                    <!-- รายการที่ 7 -->
-                    <div class="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-sm transition gap-3 md:gap-4">
-                        <div class="flex items-start gap-3 md:gap-4">
-                            <div class="bg-red-50 text-red-500 p-2 md:p-3 rounded-md font-bold text-lg md:text-xl shrink-0">
-                                <i class="ph-fill ph-file-pdf"></i>
-                            </div>
-                            <div>
-                                <h4 class="font-bold text-[#15133C] text-sm md:text-base mb-1">แบบฟอร์มตรวจเช็กสภาพยานพาหนะ</h4>
-                                <p class="text-[10px] md:text-xs text-gray-500 mb-2">สำหรับบุคลากรภายในหน่วยงานที่ต้องตรวจสภาพยานพาหนะ</p>
-                            </div>
-                        </div>
-                        <a href="https://drive.google.com/file/d/1DAnyTMcPjr6ZRRyQBM0-6Fj16PEwA3_8/view?usp=sharing" download class="shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition w-full md:w-auto">
-                            <i class="ph-bold ph-download-simple text-gray-600"></i> ดาวน์โหลด
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ================= เนื้อหา Tab 4: ติดต่อเรา ================= -->
-            <div id="contact-tab" class="tab-content">
-                <div class="text-center mb-6 md:mb-8">
-                    <h3 class="text-xl md:text-2xl font-bold text-[#15133C] mb-1 md:mb-2">เจ้าหน้าที่ผู้รับผิดชอบ</h3>
-                    <p class="text-gray-500 text-xs md:text-sm">คลิกที่รูปภาพเพื่อแอด LINE หรือติดต่อผ่านเบอร์โทรศัพท์</p>
-                </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-8 md:mb-10">
+                <!-- กล่องตัวเลข 4 กล่อง (รวม, ผ่าน, ไม่ผ่าน, รออบรม) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                     
-                    <!-- ทำกล่องให้เล็กลงในมือถือ -->
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/T6udeirDy_" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=1ccpapD8xxJcF5qMva4MoUh832tQ-CXDp&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นายการันต์ ปาลาส</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">หัวหน้ากลุ่ม รปภ.</p>
-                        <a href="tel:0613861735" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
-                    </div>
-                    
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/LdH9vFN8-K" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=1ZUQUJ7UoaoJ9YAtQDirXOpDWVazkIe5G&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นางญาณัจฉรา พันเป็ง</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0623323547" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-600 text-xs font-bold mb-1">ผู้ขอทำบัตร (รวม)</p>
+                            <h4 id="stat-total" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-users text-2xl"></i>
+                        </div>
                     </div>
 
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/-hJ1QEqcMS" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=1o9FhbuEyq1PnLOk-axJi3eH3kb_HO30g&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นายณัฐพันธ์ สุระเวก</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0860303543" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
+                    <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-emerald-600 text-xs font-bold mb-1">อบรมและสอบผ่าน</p>
+                            <h4 id="stat-pass" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-emerald-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-check-circle text-2xl"></i>
+                        </div>
                     </div>
 
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/grfARST9-h" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=1bs_CVk_pgXNriJBB-lFoO0rEb2dil7Ha&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นางสาวกนกวรรณ</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0985190426" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
+                    <div class="bg-red-50 border border-red-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-red-600 text-xs font-bold mb-1">สอบไม่ผ่าน</p>
+                            <h4 id="stat-fail" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-red-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-warning-circle text-2xl"></i>
+                        </div>
                     </div>
 
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/yWhxpVbC7E" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=1ODxhSHbaz03_V6QOr8D-pV55kEZzIPfX&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นายณัฐวุฒิ โสภา</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0841463024" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-5 flex items-center justify-between">
+                        <div>
+                            <p class="text-amber-600 text-xs font-bold mb-1">รออบรม / ยังไม่เสร็จ</p>
+                            <h4 id="stat-wait" class="text-3xl font-black text-[#15133C]">0</h4>
+                            <p class="text-gray-500 text-[10px] mt-1">คน</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-amber-500 shadow-sm shrink-0">
+                            <i class="ph-fill ph-hourglass-high text-2xl"></i>
+                        </div>
                     </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/yauXyx5mu4" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=19D8XvY9k787neUPBiIh4coLDZi-cgfN3&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นางวิชยุดา ศิรินยา</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0806727179" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/8opOfInbtf" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                            <img src="https://drive.google.com/thumbnail?id=1bSiwuIy5SguKNz1J_osRECHfQLkF8h5V&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นางสาวบงกชกร</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0615026542" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/DSTM5k_BgC" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                          <img src="https://drive.google.com/thumbnail?id=15opBsnw-_Qq2zew-RCooWDHRgWQZVu_7&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นายธีรเมธ วัยราช</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0654146525" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
-                    </div>
-
-                    <div class="bg-white border border-gray-200 rounded-xl p-3 md:p-4 shadow-sm hover:shadow-md transition">
-                        <a href="https://line.me/ti/p/yKPn6nGlaW" target="_blank" class="block relative group overflow-hidden rounded-lg mb-3 md:mb-4 aspect-[3/4] profile-img-container">
-                           <img src="https://drive.google.com/thumbnail?id=1wqzRiSxWYoCtnrONQ5EokZ47dgBadfWV&sz=w800" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-[#15133C]/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-300">
-                                <div class="text-white flex flex-col items-center"><i class="ph-fill ph-chat-circle-text text-2xl md:text-3xl mb-1"></i><span class="text-xs md:text-sm font-medium">แอด LINE</span></div>
-                            </div>
-                        </a>
-                        <h4 class="font-bold text-[#15133C] text-sm md:text-base text-center truncate">นางสาวปวีณา ปราณีทะ</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-3 md:mb-4 text-center truncate">เจ้าหน้าที่ทำบัตร</p>
-                        <a href="tel:0658962619" class="flex justify-center items-center gap-1 md:gap-2 w-full py-1.5 md:py-2 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-semibold text-xs md:text-sm hover:bg-gray-100 transition">
-                            <i class="ph-fill ph-phone-call text-sm md:text-lg text-blue-600"></i> โทรติดต่อ
-                        </a>
-                    </div>
-
                 </div>
 
-                <hr class="border-gray-200 mb-6 md:mb-10">
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    <div class="bg-white border-t-4 border-t-red-500 rounded-xl p-5 md:p-6 shadow-sm text-center flex flex-col items-center">
-                        <div class="w-10 h-10 md:w-12 md:h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-3 md:mb-4">
-                            <i class="ph-fill ph-bell-ringing text-xl md:text-2xl"></i>
-                        </div>
-                        <h4 class="font-bold text-[#15133C] text-base md:text-lg mb-1 md:mb-2">ประชาสัมพันธ์ท่าอากาศยาน</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-4 md:mb-6 px-2">แจ้งเหตุฉุกเฉิน พบวัตถุต้องสงสัย หรือสอบถามเรื่องบัตรอนุญาต</p>
-                        <a href="tel:054710270" class="flex justify-center items-center gap-2 w-full py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-lg text-[#15133C] font-bold text-sm hover:bg-gray-100 transition mt-auto">
-                            <i class="ph-fill ph-phone text-lg md:text-xl text-blue-600"></i> 054-710-270 ต่อ 0
-                        </a>
-                    </div>
-
-                    <div class="bg-white border-t-4 border-t-emerald-500 rounded-xl p-5 md:p-6 shadow-sm text-center flex flex-col items-center">
-                        <div class="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center mb-3 md:mb-4">
-                            <i class="ph-fill ph-map-pin text-xl md:text-2xl"></i>
-                        </div>
-                        <h4 class="font-bold text-[#15133C] text-base md:text-lg mb-1 md:mb-2">ที่ทำการท่าอากาศยานน่านนคร</h4>
-                        <p class="text-gray-500 text-[10px] md:text-xs mb-4 md:mb-6 px-1 md:px-2 leading-relaxed">ท่าอากาศยานน่านนคร (Nan Nakhon Airport)<br>เลขที่ 1 หมู่ 2 ถนนน่าน-ทุ่งช้าง ตำบลผาสิงห์ อำเภอเมืองน่าน จังหวัดน่าน 55000</p>
-                        <div class="grid grid-cols-2 gap-2 md:gap-3 w-full mt-auto">
-                            <a href="https://www.google.com/maps/search/?api=1&query=ท่าอากาศยานน่านนคร" target="_blank" class="flex justify-center items-center gap-1 md:gap-2 py-2 md:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition">
-                                <i class="ph-fill ph-navigation-arrow text-emerald-600"></i> แผนที่
-                            </a>
-                            <a href="https://www.facebook.com/NanAirport" target="_blank" class="flex justify-center items-center gap-1 md:gap-2 py-2 md:py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-medium text-xs md:text-sm hover:bg-gray-100 transition">
-                                <i class="ph-fill ph-facebook-logo text-blue-600"></i> Facebook
-                            </a>
-                        </div>
+                <!-- กราฟแท่งแสดงประเภทบัตร -->
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <h4 class="font-bold text-[#15133C] mb-4 flex items-center gap-2">
+                        <i class="ph-fill ph-chart-bar text-blue-600 text-xl"></i> จำนวนประเภทบัตรที่ขอ
+                    </h4>
+                    <div class="relative h-[300px] w-full">
+                        <canvas id="cardChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -624,61 +202,172 @@
         </section>
     </main>
 
-    <!-- ================= สคริปต์ควบคุมระบบทั้งหมด ================= -->
+    <!-- ================= Modal (หน้าต่างเด้ง) สำหรับ เพิ่ม/แก้ไข ข้อมูล ================= -->
+    <div id="dataModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="bg-[#15133C] px-6 py-4 flex justify-between items-center text-white">
+                <h3 id="modalTitle" class="font-bold text-lg">เพิ่มข้อมูลใหม่</h3>
+                <button onclick="closeModal()" class="text-gray-300 hover:text-white transition"><i class="ph-bold ph-x text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto custom-scrollbar">
+                <form id="admin-form" class="space-y-4">
+                    <input type="hidden" id="edit-id"> 
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">คำนำหน้า</label>
+                            <select id="m-prefix" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                <option value="นาย">นาย</option>
+                                <option value="นาง">นาง</option>
+                                <option value="นางสาว">นางสาว</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">ชื่อ</label>
+                            <input type="text" id="m-aname" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">นามสกุล</label>
+                            <input type="text" id="m-sname" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">ตำแหน่ง</label>
+                            <input type="text" id="m-position" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">สังกัด / บริษัท</label>
+                            <input type="text" id="m-company" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
+                            <input type="tel" id="m-telephone" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">การขับขี่ยานพาหนะ</label>
+                            <select id="m-driving" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                                <option value="ขับรถ">ขับรถ</option>
+                                <option value="ไม่ขับรถ">ไม่ขับรถ</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">ประเภทบัตรที่ขอ</label>
+                        <select id="m-requested" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="บัตรอนุญาตสำหรับบุคคลชนิดถาวร มีอายุครั้งละไม่เกิน 2 ปี">บัตรอนุญาตสำหรับบุคคลชนิดถาวร มีอายุครั้งละไม่เกิน 2 ปี</option>
+                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 90 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 90 วัน</option>
+                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 15 วัน">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 15 วัน</option>
+                            <option value="บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 24 ชั่วโมง">บัตรอนุญาตสำหรับบุคคลชั่วคราว มีอายุครั้งละไม่เกิน 24 ชั่วโมง</option>
+                            <option value="ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล">ขอต่ออายุหรือเปลี่ยนบัตรอนุญาตสำหรับบุคคล</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">สถานะ</label>
+                            <select id="m-status" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50">
+                                <option value="รอการอบรม">รอการอบรม</option>
+                                <option value="กำลังอบรม">กำลังอบรม</option>
+                                <option value="กำลังทำข้อสอบ">กำลังทำข้อสอบ</option>
+                                <option value="อบรมเสร็จสิ้น">อบรมเสร็จสิ้น</option>
+                                <option value="สอบไม่ผ่าน">สอบไม่ผ่าน</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">คะแนนสอบ (เต็ม 20)</label>
+                            <input type="number" id="m-score" value="0" min="0" max="20" class="w-full px-3 py-2 border rounded text-sm outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-gray-200">
+                <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition">ยกเลิก</button>
+                <button onclick="saveRecord()" class="px-4 py-2 bg-[#10b981] text-white rounded-md text-sm font-medium hover:bg-emerald-600 transition shadow-sm flex items-center gap-1">
+                    <i class="ph-bold ph-floppy-disk"></i> บันทึกข้อมูล
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= สคริปต์ควบคุมระบบ Admin ================= -->
     <script>
         const supabaseUrl = 'https://mjbvannjmvluembjdayg.supabase.co'; 
         const supabaseKey = 'sb_publishable_QLY9N_FkoqbCJDQogk_AYA_GqfGqjN4';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-        
+
+        let allData = []; // เก็บข้อมูลทั้งหมดไว้ค้นหาและทำสถิติ
+        let myChart = null; // ตัวแปรกราฟ
+
+        // โหลดข้อมูลทันทีเมื่อเปิดหน้า
+        window.onload = () => {
+            // ตั้งค่าเริ่มต้นของช่องเลือกเดือน ให้เป็นเดือนปัจจุบัน
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            document.getElementById('stat-month-picker').value = `${year}-${month}`;
+
+            fetchAdminData();
+        };
+
+        // --- ระบบอัปเดตอัตโนมัติ (Realtime) สำหรับหน้า Admin ---
         supabaseClient
-            .channel('public:trainees')
+            .channel('public:trainees:admin')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'trainees' }, payload => {
-                if (document.getElementById('status-tab').classList.contains('active')) {
-                    fetchTraineesData(); 
-                }
+                fetchAdminData(); // โหลดข้อมูลใหม่เงียบๆ เวลามีคนกดส่งข้อมูลหรือแก้ไข
             })
             .subscribe();
 
+        // ฟังก์ชันออกจากระบบ
+        function logout() {
+            Swal.fire({
+                title: 'ต้องการออกจากระบบ?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'ออกจากระบบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.removeItem('isAdminLoggedIn');
+                    window.location.href = 'index.html';
+                }
+            })
+        }
+
+        // ฟังก์ชันสลับเมนูซ้ายมือ
         function switchTab(tabId, btnElement) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active-menu'));
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active-menu');
+                btn.classList.add('text-gray-600');
+                btn.querySelector('.menu-icon')?.classList.remove('text-[#FBBF24]');
+            });
+            
             document.getElementById(tabId).classList.add('active');
-            if(btnElement) btnElement.classList.add('active-menu');
-
-            if (tabId === 'status-tab') {
-                fetchTraineesData();
+            
+            if(btnElement) {
+                btnElement.classList.add('active-menu');
+                btnElement.classList.remove('text-gray-600');
+                btnElement.querySelector('i').classList.add('text-[#FBBF24]');
             }
-        }
-       
-        function adminLogin() {
-            const user = document.getElementById('adminUser').value;
-            const pass = document.getElementById('adminPass').value;
 
-            if (user === 'admin' && pass === '1234') {
-                localStorage.setItem('isAdminLoggedIn', 'true');
-                
-                Swal.fire({
-                    icon: 'success',
-                    title: 'เข้าสู่ระบบสำเร็จ',
-                    text: 'กำลังพาท่านไปยังหน้าจัดการข้อมูล...',
-                    showConfirmButton: false,
-                    timer: 1500
-                }).then(() => {
-                    window.location.href = 'admin.html';
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'เข้าสู่ระบบไม่สำเร็จ',
-                    text: 'ข้อมูลชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
-                    confirmButtonText: 'ตกลง',
-                    confirmButtonColor: '#15133C' 
-                });
+            if (tabId === 'stats-tab') {
+                calculateStats();
             }
         }
 
-        async function fetchTraineesData() {
-            const tbody = document.getElementById('trainees-table-body');
+        // ฟังก์ชันดึงข้อมูลมาใส่ตาราง
+        async function fetchAdminData() {
+            const tbody = document.getElementById('admin-table-body');
             
             const { data, error } = await supabaseClient
                 .from('trainees')
@@ -686,442 +375,291 @@
                 .order('created_at', { ascending: false });
 
             if (error) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-8 text-center text-red-500">เกิดข้อผิดพลาดในการดึงข้อมูล</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-red-500">เกิดข้อผิดพลาด: ${error.message}</td></tr>`;
                 return;
             }
 
-            if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-8 text-center text-gray-500">ยังไม่มีข้อมูลผู้ลงทะเบียนในระบบ</td></tr>';
-                return;
+            allData = data || [];
+            renderAdminTable(allData);
+            
+            // ถ้าเปิดแท็บสถิติอยู่ ให้อัปเดตสถิติทันที
+            if(document.getElementById('stats-tab').classList.contains('active')){
+                calculateStats(); 
             }
-
-            renderTable(data);
         }
 
-        function renderTable(data) {
-            const tbody = document.getElementById('trainees-table-body');
-            let html = '';
+        // ฟังก์ชันสร้างตาราง
+        function renderAdminTable(dataToRender) {
+            const tbody = document.getElementById('admin-table-body');
+            
+            if (dataToRender.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-gray-500">ไม่พบข้อมูล</td></tr>';
+                return;
+            }
 
-            data.forEach((row, index) => {
+            let html = '';
+            
+            dataToRender.forEach((row, index) => {
                 let dateStr = '-';
-                let rawDate = ''; 
                 if (row.created_at) {
                     const d = new Date(row.created_at);
-                    const year = d.getFullYear();
-                    const month = String(d.getMonth() + 1).padStart(2, '0');
-                    const day = String(d.getDate()).padStart(2, '0');
-                    rawDate = `${year}-${month}-${day}`;
                     dateStr = d.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' });
                 }
 
                 const fullName = `${row.prefix || ''}${row.aname || ''} ${row.sname || ''}`;
                 const position = row.position || '-';
                 const company = row.company || '-';
-                const cardType = row.requested || '';
-                const scoreDisplay = row.score !== null ? row.score : '-';
                 
-                let statusColor = 'text-gray-600 font-medium';
+                let statusColor = 'text-gray-600';
                 let statusBg = 'bg-gray-100';
-                let scoreColor = 'text-gray-800'; 
-                
-                if (row.status === 'สอบไม่ผ่าน') {
-                    statusColor = 'text-red-700 font-bold';
-                    statusBg = 'bg-red-100';
-                    scoreColor = 'text-red-600 font-bold';
-                } else if (row.status === 'อบรมเสร็จสิ้น') {
-                    statusColor = 'text-emerald-700 font-bold';
-                    statusBg = 'bg-emerald-100';
-                    scoreColor = 'text-emerald-600 font-bold'; 
-                } else if (row.status === 'กำลังทำข้อสอบ') {
-                    statusColor = 'text-purple-700 font-medium';
-                    statusBg = 'bg-purple-100';
-                } else if (row.status === 'กำลังอบรม') {
-                    statusColor = 'text-blue-700 font-medium';
-                    statusBg = 'bg-blue-100';
-                } else if (row.status === 'รอการอบรม') {
-                    statusColor = 'text-amber-700 font-medium';
-                    statusBg = 'bg-amber-100';
-                }
+                if (row.status === 'สอบไม่ผ่าน') { statusColor = 'text-red-700'; statusBg = 'bg-red-100'; } 
+                else if (row.status === 'อบรมเสร็จสิ้น') { statusColor = 'text-emerald-700'; statusBg = 'bg-emerald-100'; } 
+                else if (row.status === 'กำลังทำข้อสอบ' || row.status === 'กำลังอบรม') { statusColor = 'text-blue-700'; statusBg = 'bg-blue-100'; } 
+                else if (row.status === 'รอการอบรม') { statusColor = 'text-amber-700'; statusBg = 'bg-amber-100'; }
+
+                const rowDataJson = encodeURIComponent(JSON.stringify(row));
 
                 html += `
-                    <tr class="hover:bg-blue-50/50 transition-colors search-row border-b border-gray-100" data-date="${rawDate}" data-card="${cardType}">
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-center text-gray-500">${index + 1}</td>
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-gray-600">${dateStr}</td>
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-gray-800 font-medium name-cell">${fullName}</td>
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-gray-600 truncate max-w-[100px] md:max-w-none">${position}</td>
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-gray-600 truncate max-w-[100px] md:max-w-none">${company}</td>
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-center ${scoreColor}">${scoreDisplay}</td>
-                        <td class="px-4 md:px-5 py-3 md:py-4 text-center">
-                            <span class="${statusBg} ${statusColor} px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs inline-block min-w-[70px] md:min-w-[100px]">${row.status || 'รอการอบรม'}</span>
+                    <tr class="hover:bg-blue-50/50 transition border-b border-gray-100">
+                        <td class="px-4 py-3 text-center text-gray-500 font-medium">${index + 1}</td>
+                        <td class="px-4 py-3 text-gray-500 text-xs">${dateStr}</td>
+                        <td class="px-4 py-3 text-gray-800 font-medium">${fullName}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs truncate max-w-[150px]">${position}</td>
+                        <td class="px-4 py-3 text-gray-600 text-xs truncate max-w-[150px]">${company}</td>
+                        <td class="px-4 py-3 text-center text-gray-800 font-medium">${row.score !== null ? row.score : '-'}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="${statusBg} ${statusColor} px-2 py-1 rounded-full text-[10px] font-bold">${row.status || '-'}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="openModal('edit', '${rowDataJson}')" class="w-8 h-8 rounded bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition flex items-center justify-center" title="แก้ไข">
+                                    <i class="ph-bold ph-pencil-simple text-lg"></i>
+                                </button>
+                                <button onclick="deleteRecord('${row.id}')" class="w-8 h-8 rounded bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition flex items-center justify-center" title="ลบข้อมูล">
+                                    <i class="ph-bold ph-trash text-lg"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
             });
-
             tbody.innerHTML = html;
         }
 
-        function filterTable() {
-            const nameInput = document.getElementById('searchInput').value.toLowerCase();
-            const dateInput = document.getElementById('filterDate').value;
-            const cardInput = document.getElementById('filterCardType').value;
-            
-            const rows = document.querySelectorAll('.search-row');
-            
-            rows.forEach(row => {
-                const nameCell = row.querySelector('.name-cell').innerText.toLowerCase();
-                const rowDate = row.getAttribute('data-date');
-                const rowCard = row.getAttribute('data-card');
-                
-                const matchName = nameCell.includes(nameInput);
-                const matchDate = dateInput === '' || rowDate === dateInput;
-                const matchCard = cardInput === '' || cardInput === 'ทั้งหมดทุกประเภทบัตร' || rowCard.includes(cardInput);
-                
-                if (matchName && matchDate && matchCard) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
+        // ค้นหาในตาราง
+        function filterAdminTable() {
+            const query = document.getElementById('adminSearch').value.toLowerCase();
+            const filtered = allData.filter(row => {
+                const searchString = `${row.aname} ${row.sname} ${row.position} ${row.company}`.toLowerCase();
+                return searchString.includes(query);
+            });
+            renderAdminTable(filtered);
+        }
+
+        function deleteRecord(id) {
+            Swal.fire({
+                title: 'ยืนยันการลบข้อมูล?',
+                text: "หากลบแล้วจะไม่สามารถกู้คืนได้!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'ใช่, ลบเลย!',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const { error } = await supabaseClient.from('trainees').delete().eq('id', id);
+                    if (error) {
+                        Swal.fire('ผิดพลาด!', error.message, 'error');
+                    } else {
+                        Swal.fire('ลบสำเร็จ!', 'ข้อมูลถูกลบเรียบร้อยแล้ว', 'success');
+                    }
                 }
             });
         }
 
-        async function submitRegistration() {
-            const prefix = document.getElementById('prefix').value;
-            const aname = document.getElementById('aname').value;
-            const sname = document.getElementById('sname').value;
-            const position = document.getElementById('position').value;
-            const company = document.getElementById('company').value;
-            const telephone = document.getElementById('telephone').value;
-            const requested = document.getElementById('requested').value;
-            const driving = document.getElementById('driving').value;
+        function openModal(mode, rowDataJson = null) {
+            const modal = document.getElementById('dataModal');
+            const form = document.getElementById('admin-form');
+            const title = document.getElementById('modalTitle');
+            
+            form.reset(); 
+            
+            if (mode === 'add') {
+                title.innerText = 'เพิ่มข้อมูลผู้ลงทะเบียนใหม่';
+                document.getElementById('edit-id').value = '';
+            } else if (mode === 'edit' && rowDataJson) {
+                title.innerText = 'แก้ไขข้อมูลผู้ลงทะเบียน';
+                const data = JSON.parse(decodeURIComponent(rowDataJson));
+                
+                document.getElementById('edit-id').value = data.id;
+                document.getElementById('m-prefix').value = data.prefix || '';
+                document.getElementById('m-aname').value = data.aname || '';
+                document.getElementById('m-sname').value = data.sname || '';
+                document.getElementById('m-position').value = data.position || '';
+                document.getElementById('m-company').value = data.company || '';
+                document.getElementById('m-telephone').value = data.telephone || '';
+                document.getElementById('m-driving').value = data.driving || '';
+                document.getElementById('m-requested').value = data.requested || '';
+                document.getElementById('m-status').value = data.status || 'รอการอบรม';
+                document.getElementById('m-score').value = data.score || 0;
+            }
+            modal.classList.remove('hidden');
+        }
 
-            if(!prefix || !aname || !sname || !position || !company || !telephone || !requested || !driving) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'ข้อมูลไม่ครบถ้วน',
-                    text: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบทุกช่องครับ',
-                    confirmButtonText: 'ตกลง',
-                    confirmButtonColor: '#FBBF24' 
-                });
+        function closeModal() {
+            document.getElementById('dataModal').classList.add('hidden');
+        }
+
+        async function saveRecord() {
+            const id = document.getElementById('edit-id').value;
+            
+            const payload = {
+                prefix: document.getElementById('m-prefix').value,
+                aname: document.getElementById('m-aname').value,
+                sname: document.getElementById('m-sname').value,
+                position: document.getElementById('m-position').value,
+                company: document.getElementById('m-company').value,
+                telephone: document.getElementById('m-telephone').value,
+                driving: document.getElementById('m-driving').value,
+                requested: document.getElementById('m-requested').value,
+                status: document.getElementById('m-status').value,
+                score: parseInt(document.getElementById('m-score').value) || 0
+            };
+
+            if (!payload.aname || !payload.sname) {
+                Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อและนามสกุล', 'warning');
                 return;
             }
 
-            const submitBtn = document.querySelector('button[onclick="submitRegistration()"]');
-            submitBtn.innerText = 'กำลังบันทึกข้อมูล...';
-            submitBtn.disabled = true;
+            let errorResult;
 
-            const { data, error } = await supabaseClient
-                .from('trainees')
-                .insert([{ 
-                    prefix: prefix, aname: aname, sname: sname, position: position,
-                    company: company, telephone: telephone, requested: requested, driving: driving,
-                    status: 'รอการอบรม',
-                    score: 0
-                }])
-                .select(); 
+            if (id) {
+                const { error } = await supabaseClient.from('trainees').update(payload).eq('id', id);
+                errorResult = error;
+            } else {
+                const { error } = await supabaseClient.from('trainees').insert([payload]);
+                errorResult = error;
+            }
 
-            if (error) {
+            if (errorResult) {
+                Swal.fire('ผิดพลาด', errorResult.message, 'error');
+            } else {
                 Swal.fire({
-                    icon: 'error',
-                    title: 'เกิดข้อผิดพลาด',
-                    text: error.message,
-                    confirmButtonText: 'ตกลง'
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ',
+                    showConfirmButton: false,
+                    timer: 1500
                 });
-                submitBtn.innerText = 'ลงทะเบียน';
-                submitBtn.disabled = false;
-            } else {
-                if (data && data.length > 0) {
-                    localStorage.setItem('current_user_id', data[0].id);
-                }
-                document.getElementById('form-section').style.display = 'none';
-                const successScreen = document.getElementById('success-screen');
-                successScreen.classList.remove('hidden');
-                successScreen.classList.add('flex');
+                closeModal();
             }
         }
 
-        let player;
-        let videoWatchInterval;
-        let isVideoEnded = false;
-        let maxTimeWatched = 0; // ตัวแปรจำเวลาดูสูงสุด (กันกดข้าม)
-
-        async function loadTrainingScreen() {
-            document.getElementById('success-screen').classList.add('hidden');
-            document.getElementById('success-screen').classList.remove('flex');
+        // ================= ฟังก์ชัน คำนวณสถิติ และ อัปเดตกราฟ =================
+        function calculateStats() {
+            const monthPicker = document.getElementById('stat-month-picker').value; // ได้ค่าแบบ "YYYY-MM"
+            if (!monthPicker) return;
             
-            document.getElementById('training-screen').classList.remove('hidden');
-            document.getElementById('training-screen').classList.add('flex');
+            const [selectedYear, selectedMonth] = monthPicker.split('-');
 
-            const currentUserId = localStorage.getItem('current_user_id');
-            if (currentUserId) {
-                await supabaseClient
-                    .from('trainees')
-                    .update({ status: 'กำลังอบรม' })
-                    .eq('id', currentUserId);
-            }
+            let total = 0, pass = 0, fail = 0, wait = 0;
+            
+            // สำหรับเก็บจำนวนประเภทบัตร
+            let cardCounts = {
+                c1: 0, // ถาวร 2 ปี
+                c2: 0, // ชั่วคราว 90 วัน
+                c3: 0, // ชั่วคราว 15 วัน
+                c4: 0, // ชั่วคราว 24 ชม
+                c5: 0  // ต่ออายุ
+            };
 
-            if (!window.YT) {
-                var tag = document.createElement('script');
-                tag.src = "https://www.youtube.com/iframe_api";
-                var firstScriptTag = document.getElementsByTagName('script')[0];
-                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-            } else {
-                createYouTubePlayer();
-            }
-        }
+            allData.forEach(row => {
+                if (row.created_at) {
+                    const d = new Date(row.created_at);
+                    const y = d.getFullYear().toString();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
 
-        function onYouTubeIframeAPIReady() {
-            createYouTubePlayer();
-        }
+                    // นับเฉพาะคนที่ตรงกับเดือน/ปี ที่เลือก
+                    if (y === selectedYear && m === selectedMonth) {
+                        total++;
+                        
+                        // นับสถานะ
+                        if (row.status === 'อบรมเสร็จสิ้น') {
+                            pass++;
+                        } else if (row.status === 'สอบไม่ผ่าน') {
+                            fail++;
+                        } else {
+                            // สถานะอื่นๆ (รออบรม, กำลังอบรม, กำลังทำข้อสอบ) ถือว่า รอ/ยังไม่เสร็จ
+                            wait++;
+                        }
 
-        function createYouTubePlayer() {
-            if (player) return; 
-
-            const currentOrigin = window.location.origin === "file://" || window.location.origin === "null" 
-                ? "*" : window.location.origin;
-
-            player = new YT.Player('youtube-player', {
-                height: '100%',
-                width: '100%',
-                videoId: '128g1FjOk-Y', 
-                playerVars: {
-                    'playsinline': 1,
-                    // เปิด controls ให้โชว์ปกติ ตัวหนังสือจะได้ไม่ใหญ่ล้นจอ
-                    'controls': 0, 
-                    'rel': 0, 
-                    'disablekb': 1,
-                    'enablejsapi': 1, 
-                    'origin': currentOrigin 
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
+                        // นับประเภทบัตร
+                        const req = row.requested || '';
+                        if (req.includes('ถาวร')) cardCounts.c1++;
+                        else if (req.includes('90 วัน')) cardCounts.c2++;
+                        else if (req.includes('15 วัน')) cardCounts.c3++;
+                        else if (req.includes('24 ชั่วโมง')) cardCounts.c4++;
+                        else if (req.includes('ต่ออายุ')) cardCounts.c5++;
+                    }
                 }
             });
+
+            // อัปเดตตัวเลขในกล่อง 4 กล่อง
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-pass').innerText = pass;
+            document.getElementById('stat-fail').innerText = fail;
+            document.getElementById('stat-wait').innerText = wait;
+
+            // นำข้อมูลไปวาดกราฟ
+            renderChart(cardCounts);
         }
 
-        function onPlayerReady(event) {
-            const currentUserId = localStorage.getItem('current_user_id') || 'guest';
-            const savedTime = localStorage.getItem('video_time_' + currentUserId);
+        // ฟังก์ชันวาดกราฟแท่ง
+        function renderChart(counts) {
+            const ctx = document.getElementById('cardChart').getContext('2d');
             
-            if (savedTime && parseFloat(savedTime) > 0) {
-                maxTimeWatched = parseFloat(savedTime);
-                player.seekTo(maxTimeWatched);
+            // ถ้าเคยมีกราฟวาดไว้แล้ว ให้ลบทิ้งก่อนวาดใหม่ (ป้องกันการซ้อนทับกัน)
+            if (myChart) {
+                myChart.destroy();
             }
-        }
 
-        function onPlayerStateChange(event) {
-            const currentUserId = localStorage.getItem('current_user_id') || 'guest';
-
-            if (event.data == YT.PlayerState.PLAYING) {
-                videoWatchInterval = setInterval(function() {
-                    let currentTime = player.getCurrentTime();
-                    
-                    // --- ระบบดึงกลับ (Anti-Skip) ---
-                    // ถ้าผู้ใช้พยายามลากข้ามไปข้างหน้าเกิน 2 วินาที ให้กระตุกกลับมาจุดเดิม
-                    if (currentTime > maxTimeWatched + 2) {
-                        player.seekTo(maxTimeWatched);
-                    } else {
-                        // ถ้าดูปกติ ให้บันทึกเวลาที่ดูไปเรื่อยๆ
-                        if (currentTime > maxTimeWatched) {
-                            maxTimeWatched = currentTime;
-                            localStorage.setItem('video_time_' + currentUserId, maxTimeWatched);
+            myChart = new Chart(ctx, {
+                type: 'bar', // รูปแบบกราฟแท่ง
+                data: {
+                    labels: ['ถาวร (2 ปี)', 'ชั่วคราว (90 วัน)', 'ชั่วคราว (15 วัน)', 'ชั่วคราว (24 ชม.)', 'เปลี่ยน/ต่ออายุ'],
+                    datasets: [{
+                        label: 'จำนวนประเภทบัตรที่ขอ (คน)',
+                        data: [counts.c1, counts.c2, counts.c3, counts.c4, counts.c5],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)', // ฟ้า
+                            'rgba(16, 185, 129, 0.8)', // เขียว
+                            'rgba(245, 158, 11, 0.8)', // ส้มเหลือง
+                            'rgba(239, 68, 68, 0.8)',  // แดง
+                            'rgba(139, 92, 246, 0.8)'  // ม่วง
+                        ],
+                        borderRadius: 6, // ขอบกราฟมน
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false } // ซ่อนคำอธิบายป้ายกำกับด้านบน
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1, // ให้สเกลแกน Y รันทีละ 1 (ไม่มีทศนิยม)
+                                precision: 0
+                            }
                         }
                     }
-                    
-                    let duration = player.getDuration();
-                    if (duration > 0 && currentTime >= duration - 3) {
-                        unlockNextStep();
-                    }
-                }, 1000);
-            } else {
-                clearInterval(videoWatchInterval);
-            }
-
-            if (event.data == YT.PlayerState.ENDED) {
-                unlockNextStep();
-                localStorage.setItem('video_time_' + currentUserId, 0); 
-                maxTimeWatched = 0;
-            }
-        }
-
-        function unlockNextStep() {
-            if (isVideoEnded) return; 
-            isVideoEnded = true;
-            
-            const nextBtn = document.getElementById('next-step-btn');
-            nextBtn.disabled = false;
-            
-            nextBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
-            nextBtn.classList.add('bg-[#10b981]', 'text-white', 'hover:bg-emerald-600', 'cursor-pointer', 'shadow-md');
-            nextBtn.innerText = 'ดำเนินการต่อ (ทำแบบทดสอบ)';
-            
-            nextBtn.onclick = startExam;
-        }
-
-        const examQuestions = [
-            { question: "เขตหวงห้าม (Security Restricted Area: SRA) หมายถึงอะไร?", choices: [{ text: "พื้นที่ในท่าอากาศยานที่ผู้โดยสารขาเข้าและขาออกสามารถเดินผ่านได้โดยไม่ต้องตรวจค้น", isCorrect: false }, { text: "พื้นที่ส่วนที่เป็นจุดรับส่งผู้โดยสาร หน้าอาคารผู้โดยสาร และลานจอดรถสาธารณะทั้งหมด", isCorrect: false }, { text: "พื้นที่ของท่าอากาศยานที่มีการควบคุมการเข้า-ออก และใช้มาตรการรักษาความปลอดภัยตามที่กำหนดไว้", isCorrect: true }, { text: "พื้นที่คลังสินค้าและสำนักงานของสายการบินที่บุคคลภายนอกติดต่อได้ตลอดเวลา", isCorrect: false }] },
-            { question: "ข้อใดเป็นวิธีใช้บัตรอนุญาตเข้าพื้นที่การบินได้ถูกต้อง?", choices: [{ text: "เก็บไว้ในกระเป๋าสตางค์หรือกระเป๋าเสื้อเพื่อป้องกันการสูญหาย", isCorrect: false }, { text: "ติดหรือแขวนบัตรไว้ในตำแหน่งที่เห็นชัดเจนบริเวณหน้าอกตลอดเวลาที่อยู่ในพื้นที่", isCorrect: true }, { text: "นำออกมาแสดงเฉพาะตอนที่เดินผ่านประตูระบายหรือเมื่อเจ้าหน้าที่เรียกตรวจเท่านั้น", isCorrect: false }, { text: "ฝากไว้กับหัวหน้างานหรือเพื่อนร่วมงานเมื่อต้องไปเข้าห้องน้ำหรือพักผ่อน", isCorrect: false }] },
-            { question: "เขตพื้นที่การบินเป็นเขตหวงห้าม บุคคลที่เข้าไปจะต้องปฏิบัติอย่างไร?", choices: [{ text: "แต่งกายตามสบายและสามารถเดินเข้าออกประตูไหนก็ได้ตามความสะดวก", isCorrect: false }, { text: "พกพาเฉพาะบัตรประชาชนใบเดียวก็เพียงพอสำหรับการเดินในพื้นที่", isCorrect: false }, { text: "ผ่านการตรวจค้นการรักษาความปลอดภัย ติดบัตรอนุญาต และปฏิบัติตามระเบียบความปลอดภัยอย่างเคร่งครัด", isCorrect: true }, { text: "เดินตามเจ้าหน้าที่สายการบินเข้าไปได้ทันทีโดยไม่ต้องรับการตรวจค้นหากรีบเร่ง", isCorrect: false }] },
-            { question: "เมื่อพบเห็นอุบัติเหตุหรืออุบัติการณ์ในลานจอดต้องแจ้งใครเป็นอันดับแรก?", choices: [{ text: "แจ้งศูนย์ควบคุมความปลอดภัยหรือเจ้าหน้าที่ควบคุมลานจอดของท่าอากาศยาน", isCorrect: true }, { text: "โทรศัพท์แจ้งสถานีตำรวจในท้องที่เกิดเหตุทันที", isCorrect: false }, { text: "ถ่ายภาพลงสื่อสังคมออนไลน์เพื่อขอความช่วยเหลือจากสาธารณะ", isCorrect: false }, { text: "แจ้งญาติหรือผู้บริหารระดับสูงของบริษัทตนเองก่อนเป็นอันดับแรก", isCorrect: false }] },
-            { question: "ข้อใดกล่าวถูกต้องเมื่อพบวัตถุต้องสงสัยหรือสิ่งของที่ถูกทิ้งไว้โดยไม่มีเจ้าของ?", choices: [{ text: "ให้รีบเดินเข้าไปเปิดดูด้านในทันทีเพื่อตรวจสอบว่าเป็นสิ่งของของใคร", isCorrect: false }, { text: "ห้ามแตะต้อง แยกรักษาความปลอดภัยบริเวณรอบๆ และรีบแจ้งเจ้าหน้าที่รักษาความปลอดภัยหรือ EOD ทันที", isCorrect: true }, { text: "ยกย้ายสิ่งของนั้นไปเก็บไว้ที่ห้องเก็บของสูญหาย (Lost and Found) ด้วยตนเอง", isCorrect: false }, { text: "เตะหรือใช้วัตถุอื่นเขี่ยดูว่ามีเสียงหรือมีปฏิกิริยาตอบรับหรือไม่", isCorrect: false }] },
-            { question: "บัตรอนุญาตสำหรับบุคคลมีกี่ชนิด?", choices: [{ text: "1 ชนิด คือ บัตรพนักงาน", isCorrect: false }, { text: "2 ชนิด คือ ชนิดถาวร และ ชนิดชั่วคราว", isCorrect: true }, { text: "3 ชนิด คือ ชนิดเช้า, ชนิดเย็น, และ ชนิดกลางคืน", isCorrect: false }, { text: "4 ชนิด แบ่งตามสีเสื้อของผู้ยื่นคำขอ", isCorrect: false }] },
-            { question: "บัตรอนุญาตสำหรับบุคคลชนิดถาวรมีอายุกี่ปี?", choices: [{ text: "1 ปี", isCorrect: false }, { text: "2 ปี", isCorrect: true }, { text: "3 ปี", isCorrect: false }, { text: "4 ปี", isCorrect: false }] },
-            { question: "บัตรอนุญาตสำหรับบุคคลชนิดชั่วคราวมีอายุกี่วัน?", choices: [{ text: "ไม่เกิน 7 วัน", isCorrect: false }, { text: "ไม่เกิน 30 วัน", isCorrect: false }, { text: "ไม่เกิน 90 วัน", isCorrect: true }, { text: "ไม่เกิน 180", isCorrect: false }] },
-            { question: "กรณีนำบัตรอนุญาตสำหรับบุคคลที่หมดอายุไปใช้จะถูกห้ามเข้าเขตหวงห้ามและพื้นที่ควบคุมกี่วัน?", choices: [{ text: "พิจารณาห้ามเข้าเขตหวงห้ามและพื้นที่ควบคุมเป็นเวลา 7 วัน", isCorrect: false }, { text: "พิจารณาห้ามเข้าเขตหวงห้ามและพื้นที่ควบคุมเป็นเวลา 14 วัน", isCorrect: false }, { text: "พิจารณาห้ามเข้าเขตหวงห้ามและพื้นที่ควบคุมเป็นเวลา 7 วันและทำการภาคทัณฑ์หากกระทำผิดซ้ำจะพิจารณาระยะเวลาลงโทษเพิ่มเป็น 15 วัน หรือ 30 วัน หรือไม่มีกำหนด", isCorrect: true }, { text: "พิจารณาว่ากล่าวตักเตือนและปล่อยให้เข้าพื้นที่เขตหวงห้ามและพื้นที่ควบคุมได้เลย", isCorrect: false }] },
-            { question: "กรณีไม่ติดบัตรอนุญาตสำหรับบุคคลมีบทลงโทษอย่างไร?", choices: [{ text: "พิจารณาห้ามเข้าเขตหวงห้ามและพื้นที่ควบคุมเป็นเวลา 7 วันและทำการภาคทัณฑ์หากกระทำผิดซ้ำจะพิจารณาระยะเวลาลงโทษเพิ่มเป็น 15 วัน หรือ 30 วัน หรือไม่มีกำหนด", isCorrect: true }, { text: "ไล่ออกจากงานทันทีโดยไม่มีการตักเตือน", isCorrect: false }, { text: "ปรับเป็นเงิน 100,000 บาท", isCorrect: false }, { text: "ไม่มีบทลงโทษใดๆ เพราะเจ้าหน้าที่จำหน้าได้", isCorrect: false }] },
-            { question: "กรณีนำบัตรอนุญาตสำหรับบุคคลของผู้อื่นไปไปใช้มีบทลงโทษอย่างไร?", choices: [{ text: "ตักเตือนด้วยวาจาและให้คืนบัตรแก่เจ้าของ", isCorrect: false }, {text:"ยึดบัตรอนุญาตและห้ามผู้ใช้บัตรอนุญาตและเจ้าของบัตรเข้าเขตหวงห้ามและพื้นที่ควบคุมเป็นเวลา 15 วัน และแจ้งหน่วยงานต้นสังกัด หากกระทำผิดซ้ำจะพิจารณาระยะเวลาลงโทษ เพิ่มเป็น 30 วัน หรือไม่มีกำหนด", isCorrect: true }, { text: "ให้ทำรายงานชี้แจงเหตุผลและอนุญาตให้ปฏิบัติงานต่อได้", isCorrect: false }, { text: "ยึดบัตรของผู้อื่นไว้และบังคับให้ผู้กระทำความผิดไปทำบัตรใหม่ภายในวันนั้น", isCorrect: false }] },
-            { question: "กรณีที่มีการปลอมแปลงบัตรอนุญาตเข้าเขตพื้นที่หวงห้ามและพื้นที่ควบคุมมีบทลงโทษอย่างไร?", choices: [{ text: "ยกเลิกบัตรอนุญาต และแจ้งความดำเนินคดี และแจ้งหน่วยงานต้นสังกัดของผู้ถือบัตร และรับผิดชอบต่อความเสียหายที่เกิดขึ้น", isCorrect: true }, { text: "ปรับเงิน 500 บาทและทำบัตรใหม่ให้ถูกต้อง", isCorrect: false }, { text: "ริบของกลางและปล่อยตัวกลับบ้านโดยไม่มีความผิด", isCorrect: false }, { text: "ห้ามเข้าพื้นที่เป็นเวลา 3 วันเพื่อเป็นการดัดนิสัย", isCorrect: false }] },
-            { question: "กรณีที่ผู้มีบัตรอนุญาตเข้าเขตพื้นที่หวงห้ามและพื้นที่ควบคุม กระทำการอันใดที่ทำให้ทรัพย์สินของทางราชการเสียหายมีบทลงโทษอย่างไร?", choices: [{ text: "ได้รับการยกเว้นความรับผิดชอบทั้งหมดตามที่ระบุในคำรับรองใบสมัคร", isCorrect: false }, { text: "บุคคลหรือหน่วยงานต้นสังกัดจะต้องรับผิดชอบต่อความเสียหายที่เกิดขึ้น กรณีที่เกิดจากการประมาณเลินเล่อหรือมีเจตนาทำให้ทรัพย์สินของทางราชการเสียหาย อาจพิจารณายกเลิกบัตรอนุญาตและห้ามเข้าเขตหวงห้ามและพื้นที่ควบคุม", isCorrect: true }, { text: "ให้หน่วยงานประกันภัยของสนามบินจ่ายทดแทนโดยผู้ทำไม่ต้องรับผิดชอบใดๆ", isCorrect: false }, { text: "หักเงินเดือนของเจ้าหน้าที่รักษาความปลอดภัยที่เข้าเวรในวันนั้น", isCorrect: false }] },
-            { question: "เมื่อบัตรอนุญาตสำหรับบุคคลสูญหายควรทำอย่างไร?", choices: [{ text: "แจ้งหน่วยงานออกบัตรอนุญาตทันที", isCorrect: true }, { text: "ยื่นคำร้องขอออกบัตรใหม่กับเจ้าหน้าที่", isCorrect: false }, { text: "ไม่ต้องทำอะไรปล่อยให้หายไปเลย", isCorrect: false }, { text: "ถูกทุกข้อ", isCorrect: false }] },
-            { question: "สิ่งใดต่อไปนี้ 'ห้าม' นำเข้าเขตหวงห้ามของท่าอากาศยานโดยเด็ดขาด?", choices: [{ text: "น้ำดื่มบรรจุขวดขนาดเล็กที่ซื้อจากร้านค้าด้านในอาคาร", isCorrect: false }, { text: "คอมพิวเตอร์โน้ตบุ๊กและโทรศัพท์มือถือส่วนตัวที่ลงทะเบียนแล้ว", isCorrect: true }, { text: "อาวุธปืน เครื่องกระสุน วัตถุระเบิด และสารเคมีอันตรายที่ไม่มีใบอนุญาตปฏิบัติงาน", isCorrect: false }, { text: "สมุดบันทึกและปากกาลูกลื่นสำหรับการจดบันทึกงาน", isCorrect: false }] },
-            { question: "กรณีที่ผู้ฝ่าฝืนหรือละเมิดไม่ปฏิบัติตามระเบียบข้อบังคับ (บุคคลภายนอก) มีบทลงโทษอย่างไร?", choices: [{ text: "เชิญให้ออกจากพื้นที่ทันที ยกเลิกบัตรชั่วคราว และปฏิเสธการออกบัตรอนุญาตต่อไป", isCorrect: true }, { text: "ให้ปฏิบัติงานต่อให้เสร็จสิ้นแล้วค่อยทำการตักเตือนภายหลัง", isCorrect: false }, { text: "ยกเลิกบัตรเป็นเวลา 48 ชั่วโมง", isCorrect: false }, { text: "ถูกทุกข้อ", isCorrect: false }] },
-            { question: "การกระทำใดเป็นการกระทำแทรกแซงโดยมิชอบด้วยกฎหมาย?", choices: [{ text: "การจองตั๋วเครื่องบินออนไลน์ล่วงหน้าเป็นเวลานาน", isCorrect: false }, { text: "การเดินเลือกซื้อสินค้าในร้านค้าปลอดภาษีเกินเวลาที่กำหนด", isCorrect: false }, { text: "การขอยกเลิกเที่ยวบินเนื่องจากปัญหาสุขภาพของผู้โดยสาร", isCorrect: false }, { text: "การแจ้งข้อมูลเท็จที่เป็นภัยต่อความปลอดภัย (เช่น ขู่วางระเบิด) การยึดครองอากาศยาน หรือการบุกรุกสถานที่ระบบความมั่นคง", isCorrect: true }] },
-            { question: "การสูบบุหรี่ หรือบุหรี่ไฟฟ้า ในเขตการบิน (Airside) มีข้อกำหนดอย่างไร?", choices: [{ text: "สามารถสูบได้ทุกที่ยกเว้นบริเวณใกล้ถังน้ำมัน", isCorrect: false }, { text: "ห้ามสูบบุหรี่และบุหรี่ไฟฟ้าโดยเด็ดขาดทุกพื้นที่ในเขตการบิน ยกเว้นในพื้นที่ที่จัดเตรียมไว้ให้เป็นการเฉพาะ (Designated Smoking Area) เท่านั้น", isCorrect: true }, { text: "อนุญาตให้สูบบุหรี่ไฟฟ้าได้เพราะไม่มีประกายไฟและขี้เถ้า", isCorrect: false }, { text: "สูบได้เฉพาะตอนกลางคืนหลังจากที่เครื่องบินเที่ยวสุดท้ายลงจอดแล้ว", isCorrect: false }] },
-            { question: "บุคคลใดที่มีพฤติกรรมหรือเหตุการณ์ต้องสงสัย?", choices: [{ text: "ผู้โดยสารที่นั่งอ่านหนังสือเงียบๆ อยู่ตรงเก้าอี้พักคอย", isCorrect: false }, { text: "พนักงานต้อนรับบนเครื่องบินที่เดินไปขึ้นเครื่องพร้อมลูกเรือ", isCorrect: false }, { text: "บุคคลที่พยายามเดินด้อมๆ มองๆ แอบถ่ายรูปอุปกรณ์ความมั่นคง พยายามเปิดประตูเขตหวงห้ามโดยไม่มีบัตร หรือแต่งกายไม่สมเหตุสมผลกับสภาพอากาศ", isCorrect: true }, { text: "ช่างซ่อมบำรุงที่สวมเสื้อสะท้อนแสงและถือเครื่องมือช่างในลานจอด", isCorrect: false }] },
-            { question: "หากพบเหตุการณ์ต้องสงสัยจะแจ้งได้ที่ใด?", choices: [{ text: "แจ้งที่ประชาสัมพันธ์", isCorrect: false }, { text: "โทรแจ้ง 054 710 270 ต่อ 0", isCorrect: false }, { text: "แจ้งที่เจ้าหน้าที่รักษาความปลอดภัย", isCorrect: false }, { text: "ถูกทุกข้อ", isCorrect: true }] }c
-        ];
-
-        async function startExam() {
-            document.getElementById('training-screen').classList.add('hidden');
-            document.getElementById('training-screen').classList.remove('flex');
-            
-            const currentUserId = localStorage.getItem('current_user_id');
-            if (currentUserId) {
-                await supabaseClient
-                    .from('trainees')
-                    .update({ status: 'กำลังทำข้อสอบ' })
-                    .eq('id', currentUserId);
-            }
-
-            renderExam();
-            
-            document.getElementById('exam-screen').classList.remove('hidden');
-            document.getElementById('exam-screen').classList.add('flex');
-            window.scrollTo(0, 0); 
-        }
-
-        function renderExam() {
-            const container = document.getElementById('exam-container');
-            let html = '';
-            
-            examQuestions.forEach((q, qIndex) => {
-                html += `
-                <div class="mb-6 md:mb-8 p-4 md:p-6 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-                    <h4 class="font-bold text-gray-800 mb-3 md:mb-4 text-sm md:text-lg">${qIndex + 1}. ${q.question}</h4>
-                    <div class="space-y-2 md:space-y-3 pl-1 md:pl-2">
-                `;
-                
-                q.choices.forEach((c, cIndex) => {
-                    html += `
-                        <label class="flex items-start gap-2 md:gap-3 cursor-pointer group p-2 rounded hover:bg-gray-100 transition">
-                            <input type="radio" name="q${qIndex}" value="${c.isCorrect}" class="mt-0.5 md:mt-1 w-4 h-4 md:w-5 md:h-5 text-[#15133C] focus:ring-[#15133C] shrink-0">
-                            <span class="text-gray-700 text-xs md:text-base group-hover:text-gray-900">${c.text}</span>
-                        </label>
-                    `;
-                });
-                
-                html += `</div></div>`;
-            });
-            
-            container.innerHTML = html;
-        }
-
-        async function submitExam() {
-            let score = 0;
-            let answeredCount = 0;
-            
-            examQuestions.forEach((q, i) => {
-                const selected = document.querySelector(`input[name="q${i}"]:checked`);
-                if (selected) {
-                    answeredCount++;
-                    if (selected.value === 'true') {
-                        score++;
-                    }
                 }
             });
-
-            if (answeredCount < examQuestions.length) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'ยังทำข้อสอบไม่ครบ',
-                    text: `กรุณาทำข้อสอบให้ครบทุกข้อครับ (คุณทำไปแล้ว ${answeredCount}/${examQuestions.length} ข้อ)`,
-                    confirmButtonText: 'ตกลง',
-                    confirmButtonColor: '#FBBF24' 
-                });
-                return;
-            }
-
-            const currentUserId = localStorage.getItem('current_user_id');
-            let finalStatus = score >= 18 ? 'อบรมเสร็จสิ้น' : 'สอบไม่ผ่าน';
-
-            if (currentUserId) {
-                await supabaseClient
-                    .from('trainees')
-                    .update({ status: finalStatus, score: score })
-                    .eq('id', currentUserId);
-            }
-
-            document.getElementById('exam-screen').classList.add('hidden');
-            document.getElementById('exam-screen').classList.remove('flex');
-            
-            const resultScreen = document.getElementById('exam-result-screen');
-            resultScreen.classList.remove('hidden');
-            resultScreen.classList.add('flex');
-            window.scrollTo(0, 0);
-
-            if (score >= 18) {
-                resultScreen.innerHTML = `
-                    <div class="w-20 h-20 md:w-24 md:h-24 bg-[#d1fae5] rounded-full flex items-center justify-center mb-6 shadow-sm">
-                        <i class="ph-bold ph-check text-[#10b981] text-4xl md:text-5xl"></i>
-                    </div>
-                    <h3 class="text-2xl md:text-3xl font-bold text-[#15133C] mb-3 md:mb-4">ยินดีด้วย! คุณสอบผ่าน</h3>
-                    <p class="text-gray-600 text-sm md:text-lg mb-1">คุณทำคะแนนได้ <span class="font-bold text-[#10b981] text-xl md:text-2xl">${score}</span> / ${examQuestions.length} คะแนน</p>
-                    <p class="text-gray-600 text-sm md:text-lg mb-8">สถานะของคุณถูกอัปเดตเป็น <span class="font-bold">"อบรมเสร็จสิ้น"</span> เรียบร้อยแล้ว</p>
-                    <button onclick="goToStatusTab()" class="bg-[#13599b] text-white px-6 py-2.5 md:px-8 md:py-3 rounded-md font-medium hover:bg-blue-800 transition-colors shadow-md text-sm md:text-base">
-                        ตรวจสอบสถานะผู้ขอทำบัตร
-                    </button>
-                `;
-            } else {
-                resultScreen.innerHTML = `
-                    <div class="w-20 h-20 md:w-24 md:h-24 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                        <i class="ph-bold ph-x text-red-500 text-4xl md:text-5xl"></i>
-                    </div>
-                    <h3 class="text-2xl md:text-3xl font-bold text-[#15133C] mb-3 md:mb-4">เสียใจด้วย คุณสอบไม่ผ่าน</h3>
-                    <p class="text-gray-600 text-sm md:text-lg mb-1">คุณทำคะแนนได้ <span class="font-bold text-red-500 text-xl md:text-2xl">${score}</span> / ${examQuestions.length} คะแนน</p>
-                    <p class="text-gray-600 text-[10px] md:text-lg mb-8 text-red-500">* เกณฑ์การผ่านคือ 18 คะแนนขึ้นไป (กรุณาทำแบบทดสอบใหม่อีกครั้ง) *</p>
-                    <button onclick="retryExam()" class="bg-yellow-500 text-white px-6 py-2.5 md:px-8 md:py-3 rounded-md font-medium hover:bg-yellow-600 transition-colors shadow-md text-sm md:text-base">
-                        เริ่มทำข้อสอบใหม่
-                    </button>
-                `;
-            }
         }
 
-        function goToStatusTab() {
-            document.getElementById('exam-result-screen').classList.add('hidden');
-            document.getElementById('exam-result-screen').classList.remove('flex');
-            document.getElementById('form-section').style.display = 'block';
-            document.getElementById('registration-form').reset();
-            const submitBtn = document.querySelector('button[onclick="submitRegistration()"]');
-            if(submitBtn) {
-                submitBtn.innerText = 'ลงทะเบียน';
-                submitBtn.disabled = false;
-            }
-            const statusBtn = document.querySelectorAll('.tab-button')[1];
-            switchTab('status-tab', statusBtn);
-            window.scrollTo(0, 0);
-        }
-
-        function retryExam() {
-            document.getElementById('exam-result-screen').classList.add('hidden');
-            document.getElementById('exam-result-screen').classList.remove('flex');
-            
-            renderExam();
-            
-            document.getElementById('exam-screen').classList.remove('hidden');
-            document.getElementById('exam-screen').classList.add('flex');
-            window.scrollTo(0, 0);
-        }
     </script>
 </body>
 </html>
